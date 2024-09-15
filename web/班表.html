@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset='utf-8'>
+		<title>中鋼班表查詢</title>
+		<style>
+		body {
+			background-color: #438fc4;
+		}
+
+		.bg {
+			background-color: #dadada;
+		}
+
+		.container {
+			margin: 0 auto;
+			width: 600px;
+		}
+
+		.button {
+			width: 140px;
+			height: 60px;
+			font-size: 26px;
+			margin-left: 26px;
+		}
+
+		.rightbutton {
+			margin-left: 260px;
+		}
+
+		input, select {
+			font-size: 20px;
+			width: 160px;
+			height: 40px;
+			background-color: #dadada;
+		  }
+		
+		  #Table {
+			border-collapse: collapse; /* 將表格邊框合併 */
+		  }
+
+		#Table * {
+			background-color: #dadada;
+			text-align: center;
+			width: 140px;
+			border: 1px solid black; /* 設定表格內部儲存格的邊框 */
+			padding: 8px; /* 設定儲存格內文字的內邊距 */
+		  }
+		  </style>
+	</head>
+	<body>
+		<div class="container">
+			日期:
+			<input type="date" id="Date" value="" />
+			股別:
+			<select id="part" >
+			<option value=-1 disabled>選擇</option>
+			<option value=0>A股</option>
+			<option value=1 Selected>B股</option>
+			<option value=2>C股</option>
+			<option value=3>D股</option>
+			</select>
+			<p id="result"></p>
+			<table id="Table"></table>
+			<button id="up" class="button">上一週</button>
+			<button id="down" class="button rightbutton">下一週</button>
+		</div>
+
+		<script>
+			//宣告參數
+			const startDateInput = document.getElementById('Date');
+			const selectpart = document.getElementById('part');
+			const myTable = document.getElementById('Table');
+			const upbutton = document.getElementById('up');
+			const downbutton = document.getElementById('down');
+			//建立list
+			let shiftList = ["中","中","中","中","中","休","早","早","早","早","早","休","休","夜","夜","夜","夜","夜","休","休","中","中","中","中","中","休","早","早","早","早","早","休","休","夜","夜","夜","夜","夜","休","休"]
+			let substituteList = [["C/D","C","B/C","D","D","","B","B","C","C","B/C","","","B","B","B","D","D","","","C/D","C","B/C","D","D","","B","B","C","C","B/C","","","B","B","B","D","D","",""],["D/A","D","C/D","A","A","","C","C","D","D","C/D","","","C","C","C","A","A","","","D/A","D","C/D","A","A","","C","C","D","D","C/D","","","C","C","C","A","A","",""],["A/B","A","D/A","B","B","","D","D","A","A","D/A","","","D","D","D","B","B","","","A/B","A","D/A","B","B","","D","D","A","A","D/A","","","D","D","D","B","B","",""],["B/C","B","A/B","C","C","","A","A","B","B","A/B","","","A","A","A","C","C","","","B/C","B","A/B","C","C","","A","A","B","B","A/B","","","A","A","A","C","C","",""]]
+			let halfDayList = [["","B/D","","B/C","B/C","","C/D","C/D","B/D","B/D","","","","","","","","","","","","B/D","","B/C","B/C","","C/D","C/D","B/D","B/D","","","","","","","","","",""],["","C/A","","C/D","C/D","","D/A","D/A","C/A","C/A","","","","","","","","","","","","C/A","","C/D","C/D","","D/A","D/A","C/A","C/A","","","","","","","","","",""],["","D/B","","D/A","D/A","","A/B","A/B","D/B","D/B","","","","","","","","","","","","D/B","","D/A","D/A","","A/B","A/B","D/B","D/B","","","","","","","","","",""],["","A/C","","A/B","A/B","","B/C","B/C","A/C","A/C","","","","","","","","","","","","A/C","","A/B","A/B","","B/C","B/C","A/C","A/C","","","","","","","","","",""]]
+			
+			//初始化日期
+			const today = new Date();
+			FormatDate(today);
+
+			function FormatDate(date) { //格式化日期
+				document.body.style.fontSize = '30px';
+				
+				const yyyy = date.getFullYear();
+				const mm = String(date.getMonth() + 1).padStart(2, '0');
+				const dd = String(date.getDate()).padStart(2, '0');
+				const formattedDate = yyyy + '-' + mm + '-' + dd;
+				document.getElementById('Date').value = formattedDate;
+				return formattedDate;
+			}
+
+			function getOrdinalDate(date) { //取得日期的序數
+				return Math.floor(Date.parse(date) / 86400000);
+			}
+			
+			//resultElement.textContent = selectedOption.value
+
+			function gentable(name) { 
+				// 取得使用者選擇的起始日期
+				const startDate = new Date(startDateInput.value);
+				const selectedOption = selectpart.options[selectpart.selectedIndex];
+				
+				// 清空表格
+				myTable.innerHTML = '';
+				for (let i = 0; i < 9; i++) { // 9 行
+					const ordinalDate = getOrdinalDate(startDate);
+					let nList = ordinalDate % 20
+					switch (selectedOption.value) {
+						case '0': nList += 18; break;
+						case '1': nList += 3; break;
+						case '2': nList += 8; break;
+						case '3': nList += 13; break;
+					}
+					const row = myTable.insertRow();
+					for (let j = 0; j < 4; j++) { // 3 列
+						const cell = row.insertCell();
+						if (i === 0 && j === 0) { // 第一列的第一個儲存格
+							cell.colSpan = 4; // 佔據3個儲存格
+							cell.textContent = `${selectedOption.text}行事曆`;
+							cell.style.fontSize = '40px';
+							break;
+						} else if ( i === 1) {
+							switch (j) {
+								case 0: cell.textContent = `日期`; break;
+								case 1: cell.textContent = `班別`; break;
+								case 2: cell.textContent = `請假代理`; break;
+								case 3: cell.textContent = `半天`; break;
+							}
+						} else {
+							// 其他儲存格
+							switch (j) { // 第一欄
+								case 0: cell.textContent = startDate.toLocaleDateString();
+								startDate.setDate(startDate.getDate() + 1); break;// 日期遞增一天
+								case 1: cell.textContent = shiftList[nList]; break;
+								case 2: cell.textContent = substituteList[selectedOption.value][nList]; break;
+								case 3: cell.textContent = halfDayList[selectedOption.value][nList]; break;
+							}
+						}
+					}
+				}
+			}
+
+			// 初始化表格
+			gentable();
+			
+			//date
+			startDateInput.addEventListener('change', () => {
+				gentable();
+			});
+			
+			//select
+			selectpart.addEventListener('change', () => {
+				gentable();
+			});
+			
+			upbutton.addEventListener('click', () => {
+				let newDate = new Date(startDateInput.value);
+				newDate.setDate(newDate.getDate() - 7);
+				newDate = FormatDate(newDate);
+				startDateInput.value = newDate;
+				gentable();
+			});
+
+			downbutton.addEventListener('click', () => {
+				let newDate = new Date(startDateInput.value);
+				newDate.setDate(newDate.getDate() + 7);
+				newDate = FormatDate(newDate);
+				startDateInput.value = newDate;
+				gentable();
+			});
+			
+		</script>
+	</body>
+</html>
