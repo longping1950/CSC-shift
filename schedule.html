@@ -8,6 +8,7 @@
 		<style>
 			body {
 				background-color: #438fc4;
+				font-size: 30px;
 			}
 			
 			span {
@@ -24,6 +25,15 @@
 				vertical-align: middle;
 			}
 
+			.linkbutton {
+				width: 100px;
+				height: 35px;
+				font-size: 20px;
+				margin-left: 10px;
+				background-color: #dadada;
+				border-radius: 15px;
+			}
+
 			.button {
 				width: 140px;
 				height: 60px;
@@ -38,7 +48,7 @@
 			}
 
 			.picture {
-				margin-left: 30px;
+				margin-left: 10px;
 				position: absolute;
 				width: 50px;
 				top: 20px;
@@ -83,13 +93,14 @@
 		<div class="container">
 		<span>日期:</span>
 		<input type="date" id="Date" value="" />
-		<span>  股別:</span>
+		<span> 股別:</span>
 		<select id="part">
 		  <option value=0 selected>A股</option>
 		  <option value=1>B股</option>
 		  <option value=2>C股</option>
 		  <option value=3>D股</option>
 		</select>
+		<button id="link1" class="linkbutton" onclick="redirectToURL()">月輪班表</button>
 		<a href="https://github.com/longping1950/CSC-shift">
 			<img src="web/github-mark.png" alt="點擊前往專案" class="picture" title="點擊前往專案">
 		</a>
@@ -108,8 +119,6 @@
 			FormatDate(today);
 
 			function FormatDate(date) {
-				document.body.style.fontSize = '30px';
-				
 				const yyyy = date.getFullYear();
 				const mm = String(date.getMonth() + 1).padStart(2, '0');
 				const dd = String(date.getDate()).padStart(2, '0');
@@ -134,7 +143,10 @@
 				return Math.floor(timestamp / 86400000);
 			}
 			
-			//resultElement.textContent = selectedOption.value
+
+			function redirectToURL() {
+				window.location.href = "https://longping1950.github.io/CSC-shift/shift.html";
+			  }
 
 			function gentable(name) {
 				// 取得今天日期
@@ -148,7 +160,7 @@
 					const ordinalDate = getOrdinalDate(startDate);
 					let nList = ordinalDate % 20;
 					switch (selectedOption.value) {
-						case '0': nList -= 2;
+						case '0': nList += 18;
 						break;
 						case '1': nList += 3;
 						break;
@@ -162,7 +174,7 @@
 						const cell = row.insertCell();
 						if (i === 0 && j === 0) {
 							cell.colSpan = 4;
-							cell.textContent = `${selectedOption.text}行事曆`;
+							cell.textContent = `${selectedOption.text}請假查詢`;
 							cell.style.fontSize = '40px';
 							break;
 						} else if ( i === 1) {

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset='utf-8'>
+		<title>中鋼班表查詢</title>
+		<link rel="shortcut icon" href="web/favicon.ico" type="image/x-icon">
+		<link rel="icon" href="web/favicon.ico" type="image/x-icon">
+		<style>
+			body {
+				background-color: #438fc4;
+				font-size: 30px;
+			}
+			
+			span {
+				white-space: pre;
+			}
+
+			footer {
+				text-align: center;
+			}
+
+			.container {
+				margin: 0 auto;
+				width: 800px;
+				vertical-align: middle;
+			}
+
+			.linkbutton {
+				width: 100px;
+				height: 35px;
+				font-size: 20px;
+				margin-left: 20px;
+				background-color: #dadada;
+				border-radius: 15px;
+			}
+
+			.button {
+				width: 140px;
+				height: 60px;
+				font-size: 26px;
+				margin-left: 120px;
+				background-color: #dadada;
+				border-radius: 15px;
+			}
+
+			.rightbutton {
+				margin-left: 270px;
+			}
+
+			.picture {
+				margin-left: 20px;
+				position: absolute;
+				width: 50px;
+				top: 20px;
+			}
+
+			input, select {
+				font-size: 20px;
+				width: 160px;
+				height: 35px;
+				background-color: #dadada;
+				border-radius: 15px;
+			}
+						
+			#Table {
+				display: grid;
+				border-radius: 20px;
+				border-collapse: collapse;
+				border: 3px solid #061d66;
+				background-color: #dadada;
+				overflow: hidden;
+			}
+
+			#Table td, #Table th {
+				overflow: hidden;
+				text-align: center;
+				width: 50px;
+				border: 1px solid #061d66;
+				padding: 8px;
+			}
+
+			.bottom {
+				font-size: 20px;
+				bottom: 0;
+				left: 0;
+				width: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+		<span>  日期:</span>
+		<input type="month" id="month" value="" />
+		<span>    高光股別:</span>
+		<select id="part">
+		  <option value=0 selected>無</option>
+		  <option value=1>A股</option>
+		  <option value=2>B股</option>
+		  <option value=3>C股</option>
+		  <option value=4>D股</option>
+		</select>
+		<button id="link1" class="linkbutton" onclick="redirectToURL()">請假查詢</button>
+		<a href="https://github.com/longping1950/CSC-shift">
+			<img src="web/github-mark.png" alt="點擊前往專案" class="picture" title="點擊前往專案">
+		</a>
+		<p></p>
+		
+		<table id="Table"></table>
+
+		<p></p>
+
+		<button id="up" class="button">上個月</button>
+		<button id="down" class="button rightbutton">下個月</button>
+		
+		<script>
+			// 日期RESET
+			const today = new Date();
+			FormatMonth(today);
+
+			function FormatMonth(month) {
+				const yyyy = month.getFullYear();
+				const mm = String(month.getMonth() + 1).padStart(2, '0');
+				const FormattedMonth = yyyy + '-' + mm;
+				document.getElementById('month').value = FormattedMonth;
+				return FormattedMonth;
+			}
+
+			const selectpart = document.getElementById('part');
+			const monthInput = document.getElementById('month');
+			const myTable = document.getElementById('Table');
+			const hightlightMemory =localStorage.getItem('hightlightMemory');
+			// 建立list
+			let List = ["中","中","中","中","中","休","早","早","早","早","早","休","休","夜","夜","夜","夜","夜","休","休","中","中","中","中","中","休","早","早","早","早","早","休","休","夜","夜","夜","夜","夜","休","休"]
+			//let List = ["中班","中班","中班","中班","中班","休假","早班","早班","早班","早班","早班","休假","休假","夜班","夜班","夜班","夜班","夜班","休假","休假","中班","中班","中班","中班","中班","休假","早班","早班","早班","早班","早班","休假","休假","夜班","夜班","夜班","夜班","夜班","休假","休假"]
+			
+			function getOrdinalDate(date) {
+				// 將日期轉換為 UNIX 時間戳
+				const timestamp = Date.parse(date);
+				// 將時間戳轉換成天數
+				return Math.floor(timestamp / 86400000);
+			}
+
+			function redirectToURL() {
+				window.location.href = "https://longping1950.github.io/CSC-shift/schedule.html";
+			  }
+
+			function gentable(name) {
+				// 取得月第一天日期
+				const startDate = new Date(monthInput.value);
+				const days = new Date(startDate.getFullYear(),startDate.getMonth()+1,0).getDate();
+				const selectedOption = selectpart.options[selectpart.selectedIndex];
+
+				// 清空表格
+				myTable.innerHTML = '';
+				// 生成表格
+				for (let i = 0; i < 8; i++) {
+					const row = myTable.insertRow();
+					if (i == 0) {
+						const cell = row.insertCell();
+						cell.colSpan = 14;
+						const options = {year:"numeric",month:"long"}
+						cell.textContent = startDate.toLocaleDateString('zh-TW',options);
+						cell.style.fontSize = '32px';
+					}
+					else if (i == 1) {
+						let weekdays = ["日","一","二","三","四","五","六"]
+						for (let w = 0; w < 7; w++) {
+							const cell = row.insertCell();
+							cell.colSpan = 2;
+							cell.textContent = weekdays[w];
+							cell.style.fontSize = '24px';
+						}
+					}
+					else {
+						let part1 = [];
+						let part2 = [];
+						
+						if (i >4 && startDate.getDate() < 7) {
+							break;
+						}
+						for (let w = 0; w < 7; w++) {
+							const cell = row.insertCell();
+							cell.colSpan = 2;
+							if (w < startDate.getDay() || (i >4 && startDate.getDate() < 7)) {
+								part1.push('','');
+								part2.push('','');
+							}
+							else if (startDate.getDate() <= days) {
+								cell.textContent = startDate.getDate();
+								cell.style.fontSize = '24px';
+								part1.push(getShift(startDate,18,'A:'));
+								part1.push(getShift(startDate,3,'B:'));
+								part2.push(getShift(startDate,8,'C:'));
+								part2.push(getShift(startDate,13,'D:'));
+								startDate.setDate(startDate.getDate()+1);
+							}
+						}
+						const row1 = myTable.insertRow();
+						for (let s = 0; s < 14; s++) {
+							const cell = row1.insertCell();
+							cell.textContent = part1[s];
+							cell.style.fontSize = '18px';
+							if (selectpart.value == 1 && part1[s] != '' && s%2 == 0) {
+								cell.style.backgroundColor = 'yellow';
+							}
+							if (selectpart.value == 2 && part1[s] != '' && s%2 != 0) {
+								cell.style.backgroundColor = 'yellow';
+							}
+						}
+						const row2 = myTable.insertRow();
+						for (let s = 0; s < 14; s++) {
+							const cell = row2.insertCell();
+							cell.textContent = part2[s];
+							cell.style.fontSize = '18px';
+							if (selectpart.value == 3 && part1[s] != '' && s%2 == 0) {
+								cell.style.backgroundColor = 'yellow';
+							}
+							if (selectpart.value == 4 && part1[s] != '' && s%2 != 0) {
+								cell.style.backgroundColor = 'yellow';
+							}
+						}
+					}
+					
+				}
+			}
+
+			function getShift(date,shift,part) {
+				const ordinalDate = getOrdinalDate(date);
+				let nList = ordinalDate % 20;
+				nList = nList + shift;
+				return part + List[nList];
+			}
+
+
+			// 讀取股別memory
+			if (hightlightMemory) {
+				part.value = hightlightMemory;
+			}
+
+			// 建立表格
+			gentable();
+			
+			// 日期觸發器
+			monthInput.addEventListener('change', () => {
+				if (monthInput.value == '') {
+					const today = new Date();
+					FormatMonth(today);
+				}
+				gentable();
+			});
+			
+			// 股別觸發器
+			selectpart.addEventListener('change', () => {
+				localStorage.setItem('hightlightMemory', part.value);
+				gentable();
+			});
+			
+			// 上月按鈕觸發器
+			const upbutton = document.getElementById('up');
+			upbutton.addEventListener('click', () => {
+				let newDate = new Date(monthInput.value);
+				newDate = new Date(newDate.getFullYear(),newDate.getMonth()-1,1);
+				newDate = FormatMonth(newDate);
+				monthInput.value = newDate;
+				gentable();
+			});
+
+			// 下月按鈕出發器
+			const downbutton = document.getElementById('down');
+			downbutton.addEventListener('click', () => {
+				let newDate = new Date(monthInput.value);
+				newDate = new Date(newDate.getFullYear(),newDate.getMonth()+1,1);
+				newDate = FormatMonth(newDate);
+				console.log(newDate);
+				monthInput.value = newDate;
+				console.log(newDate);
+				gentable();
+			});
+		
+		</script>
+	</div>
+	<footer class="bottom">
+		<p>copyright &copy; 2024 longping.</p>
+	</footer>
+	</body>
+</html>
