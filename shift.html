@@ -26,7 +26,7 @@
 			}
 
 			.linkbutton {
-				width: 100px;
+				width: 110px;
 				height: 35px;
 				font-size: 20px;
 				margin-left: 20px;
@@ -67,7 +67,7 @@
 				border-radius: 20px;
 				border-collapse: collapse;
 				border: 3px solid #061d66;
-				background-color: #dadada;
+				background-color: #cecece;
 				overflow: hidden;
 			}
 
@@ -117,7 +117,7 @@
 			const today = new Date();
 			FormatMonth(today);
 
-			function FormatMonth(month) {
+			function FormatMonth(month) {  //初始化日期格
 				const yyyy = month.getFullYear();
 				const mm = String(month.getMonth() + 1).padStart(2, '0');
 				const FormattedMonth = yyyy + '-' + mm;
@@ -131,20 +131,19 @@
 			const hightlightMemory =localStorage.getItem('hightlightMemory');
 			// 建立list
 			let List = ["中","中","中","中","中","休","早","早","早","早","早","休","休","夜","夜","夜","夜","夜","休","休","中","中","中","中","中","休","早","早","早","早","早","休","休","夜","夜","夜","夜","夜","休","休"]
-			//let List = ["中班","中班","中班","中班","中班","休假","早班","早班","早班","早班","早班","休假","休假","夜班","夜班","夜班","夜班","夜班","休假","休假","中班","中班","中班","中班","中班","休假","早班","早班","早班","早班","早班","休假","休假","夜班","夜班","夜班","夜班","夜班","休假","休假"]
 			
-			function getOrdinalDate(date) {
+			function getOrdinalDate(date) {  //日期轉換成數字
 				// 將日期轉換為 UNIX 時間戳
 				const timestamp = Date.parse(date);
 				// 將時間戳轉換成天數
 				return Math.floor(timestamp / 86400000);
 			}
 
-			function redirectToURL() {
+			function redirectToURL() { //跳轉網頁
 				window.location.href = "https://longping1950.github.io/CSC-shift/schedule.html";
 			  }
 
-			function gentable(name) {
+			function gentable(name) {  //生成表格
 				// 取得月第一天日期
 				const startDate = new Date(monthInput.value);
 				const days = new Date(startDate.getFullYear(),startDate.getMonth()+1,0).getDate();
@@ -201,10 +200,10 @@
 							cell.textContent = part1[s];
 							cell.style.fontSize = '18px';
 							if (selectpart.value == 1 && part1[s] != '' && s%2 == 0) {
-								cell.style.backgroundColor = 'yellow';
+								tableColor(part1[s],cell);
 							}
-							if (selectpart.value == 2 && part1[s] != '' && s%2 != 0) {
-								cell.style.backgroundColor = 'yellow';
+							else if (selectpart.value == 2 && part1[s] != '' && s%2 != 0) {
+								tableColor(part1[s],cell);
 							}
 						}
 						const row2 = myTable.insertRow();
@@ -213,10 +212,10 @@
 							cell.textContent = part2[s];
 							cell.style.fontSize = '18px';
 							if (selectpart.value == 3 && part1[s] != '' && s%2 == 0) {
-								cell.style.backgroundColor = 'yellow';
+								tableColor(part2[s],cell);
 							}
-							if (selectpart.value == 4 && part1[s] != '' && s%2 != 0) {
-								cell.style.backgroundColor = 'yellow';
+							else if (selectpart.value == 4 && part1[s] != '' && s%2 != 0) {
+								tableColor(part2[s],cell);
 							}
 						}
 					}
@@ -224,13 +223,27 @@
 				}
 			}
 
-			function getShift(date,shift,part) {
+			function getShift(date,shift,part) {  //計算班別
 				const ordinalDate = getOrdinalDate(date);
 				let nList = ordinalDate % 20;
 				nList = nList + shift;
 				return part + List[nList];
 			}
 
+			function tableColor(part,cell) {  //班別上色
+				if (part.indexOf('早') != -1) {
+					cell.style.backgroundColor = "#9dd7db";
+				}
+				else if (part.indexOf('中') != -1) {
+					cell.style.backgroundColor = '#ceb98d';
+				}
+				else if (part.indexOf('夜') != -1) {
+					cell.style.backgroundColor = '#c6a1cf';
+				}
+				else if (part.indexOf('休') != -1) {
+					cell.style.backgroundColor = '#b1b1b1';
+				}
+			}
 
 			// 讀取股別memory
 			if (hightlightMemory) {
