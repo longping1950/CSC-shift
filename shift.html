@@ -28,7 +28,7 @@
 			.linkbutton {
 				width: 110px;
 				height: 35px;
-				font-size: 20px;
+				font-size: 18px;
 				margin-left: 20px;
 				background-color: #dadada;
 				border-radius: 15px;
@@ -74,13 +74,14 @@
 			#Table td, #Table th {
 				overflow: hidden;
 				text-align: center;
-				width: 50px;
+				width: 58px;
 				border: 1px solid #061d66;
-				padding: 8px;
+				padding: 2px;
 			}
 
 			.bottom {
 				font-size: 20px;
+				position: absolute;
 				bottom: 0;
 				left: 0;
 				width: 100%;
@@ -186,7 +187,7 @@
 							}
 							else if (startDate.getDate() <= days) {
 								cell.textContent = startDate.getDate();
-								cell.style.fontSize = '24px';
+								cell.style.fontSize = '28px';
 								part1.push(getShift(startDate,18,'A:'));
 								part1.push(getShift(startDate,3,'B:'));
 								part2.push(getShift(startDate,8,'C:'));
@@ -198,7 +199,7 @@
 						for (let s = 0; s < 14; s++) {
 							const cell = row1.insertCell();
 							cell.textContent = part1[s];
-							cell.style.fontSize = '18px';
+							cell.style.fontSize = '20px';
 							if (selectpart.value == 1 && part1[s] != '' && s%2 == 0) {
 								tableColor(part1[s],cell);
 							}
@@ -210,7 +211,7 @@
 						for (let s = 0; s < 14; s++) {
 							const cell = row2.insertCell();
 							cell.textContent = part2[s];
-							cell.style.fontSize = '18px';
+							cell.style.fontSize = '20px';
 							if (selectpart.value == 3 && part1[s] != '' && s%2 == 0) {
 								tableColor(part2[s],cell);
 							}
