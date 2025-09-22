@@ -79,33 +79,53 @@
 				border: 1px solid #ddd;
 			}
 						
-			#Table {
+			/* 新增：CSS Grid 樣式 */
+			#schedule-grid {
 				width: 100%;
-				border-collapse: collapse;
-				margin-top: 20px;
+				max-width: 800px;
+				margin: 0 auto;
+				display: grid;
+				grid-template-columns: repeat(4, 1fr);
+				border: 1px solid #ddd;
+				border-radius: 8px;
+				overflow: hidden;
+				background-color: #f8f8f8;
+			}
+
+			.grid-cell {
+				padding: 10px;
+				text-align: center;
+				border-bottom: 1px solid #ddd;
+				border-right: 1px solid #ddd;
+				background-color: white;
 				font-size: 22px;
 			}
-			
-			#Table th {
+
+			.grid-cell:last-child {
+				border-right: none;
+			}
+
+			.grid-header {
 				background-color: #3498db;
 				color: white;
 				padding: 12px;
 				text-align: center;
+				font-weight: bold;
+				font-size: 22px;
 				border-bottom: 2px solid #2c3e50;
 			}
-			
-			#Table td {
-				padding: 10px;
-				text-align: center;
-				border-bottom: 1px solid #ddd;
+
+			.grid-title-header {
+				grid-column: span 4;
+				font-size: 40px;
 			}
-			
-			#Table tr:nth-child(even) {
+
+			.grid-row-striped {
 				background-color: #f9f9f9;
 			}
 
 			.content-wrapper {
-				flex-grow: 1; /* 讓內容區域填滿剩餘空間 */
+				flex-grow: 1;
 			}
 
 			.bottom {
@@ -123,7 +143,7 @@
 					font-size: 14px;
 				}
 				
-				#Table th, #Table td {
+				.grid-cell, .grid-header {
 					padding: 8px;
 				}
 			}
@@ -145,7 +165,7 @@
 			</div>
 			<p></p>
 			
-			<table id="Table"></table>
+			<div id="schedule-grid"></div>
 
 			<p></p>
 
@@ -155,10 +175,7 @@
 			</div>
 			
 			<script>
-				// 日期RESET
-				const today = new Date();
-				FormatDate(today);
-
+				// 日期格式化函式
 				function FormatDate(date) {
 					const yyyy = date.getFullYear();
 					const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -170,11 +187,32 @@
 
 				const selectpart = document.getElementById('part');
 				const startDateInput = document.getElementById('Date');
-				const myTable = document.getElementById('Table');
+				const myTable = document.getElementById('schedule-grid');
 				const partMemory =localStorage.getItem('partMemory');
+
+				// 讀取網址中的日期和股別參數
+				const urlParams = new URLSearchParams(window.location.search);
+				const dateParam = urlParams.get('date');
+				const partParam = urlParams.get('part');
+
+				if (dateParam) {
+					startDateInput.value = dateParam;
+				} else {
+					const today = new Date();
+					FormatDate(today);
+				}
+
+				if (partParam) {
+					selectpart.value = partParam;
+				} else {
+					if (partMemory) {
+						part.value = partMemory;
+					}
+				}
+				
 				// 建立list
 				let List = ["中","中","中","中","中","休","早","早","早","早","早","休","休","夜","夜","夜","夜","夜","休","休","中","中","中","中","中","休","早","早","早","早","早","休","休","夜","夜","夜","夜","夜","休","休"]
-				let List1 = [["C/D","C","B/C","D","D","","B","B","C","C","B/C","","","B","B","B","D","D","","","C/D","C","B/C","D","D","","B","B","C","C","B/C","","","B","B","B","D","D","",""],["D/A","D","C/D","A","A","","C","C","D","D","C/D","","","C","C","C","A","A","","","D/A","D","C/D","A","A","","C","C","D","D","C/D","","","C","C","C","A","A","",""],["A/B","A","D/A","B","B","","D","D","A","A","D/A","","","D","D","D","B","B","","","A/B","A","D/A","B","B","","D","D","A","A","D/A","","","D","D","D","B","B","",""],["B/C","B","A/B","C","C","","A","A","B","B","A/B","","","A","A","A","C","C","","","B/C","B","A/B","C","C","","A","A","B","B","A/B","","","A","A","A","C","C","",""]]
+				let List1 = [["C/D","C","B/C","D","D","","B","B","C","C","B/C","","","B","B","B","D","D","","","C/D","C","B/C","D","D","","B","B","C","C","B/C","","","B","B","B","D","D","",""],["D/A","D","C/D","A","A","","C","C","D","D","C/D","","","C","C","C","A","A","","","D/A","D","C/D","A","A","","C","C","D","D","C/D","","","C","C","C","A","A","",""],["A/B","A","D/A","B","B","","D","D","A","A","D/A","","","D","D","D","B","B","","","A/B","A","D/A","B","B","","D","D","A","A","D/A","","","D","D","D","B","B","",""],["B/C","B","A/B","C","C","","A","A","B","B","A/B","","","A","A","A","C","C","","","B/C","B","A/B","C","C","","A","A","B","B","A/C","","","A","A","A","C","C","",""]]
 				let List2 = [["","B/D","","B/C","B/C","","C/D","C/D","B/D","B/D","","","","","","","","","","","","B/D","","B/C","B/C","","C/D","C/D","B/D","B/D","","","","","","","","","",""],["","C/A","","C/D","C/D","","D/A","D/A","C/A","C/A","","","","","","","","","","","","C/A","","C/D","C/D","","D/A","D/A","C/A","C/A","","","","","","","","","",""],["","D/B","","D/A","D/A","","A/B","A/B","D/B","D/B","","","","","","","","","","","","D/B","","D/A","D/A","","A/B","A/B","D/B","D/B","","","","","","","","","",""],["","A/C","","A/B","A/B","","B/C","B/C","A/C","A/C","","","","","","","","","","","","A/C","","A/B","A/B","","B/C","B/C","A/C","A/C","","","","","","","","","",""]]
 				
 				function getOrdinalDate(date) {
@@ -190,16 +228,30 @@
 				}
 
 				function gentable(name) {
-					myTable.innerHTML = '<tr><td colspan="4" style="text-align: center;">資料加載中...</td></tr>';
-					// 取得今天日期
+					myTable.innerHTML = ''; // 清空舊內容
+					
 					const startDate = new Date(startDateInput.value);
 					const selectedOption = selectpart.options[selectpart.selectedIndex];
 					
-					// 清空表格
-					myTable.innerHTML = '';
-					// 生成表格
-					for (let i = 0; i < 9; i++) { // 9 行
-						const ordinalDate = getOrdinalDate(startDate);
+					// 標題行
+					const titleHeader = document.createElement('div');
+					titleHeader.classList.add('grid-header', 'grid-title-header');
+					titleHeader.textContent = `${selectedOption.text}請假查詢`;
+					myTable.appendChild(titleHeader);
+
+					// 表格標頭
+					const headers = [`日期`, `班別`, `請假代理`, `半天`];
+					headers.forEach(headerText => {
+						const headerCell = document.createElement('div');
+						headerCell.classList.add('grid-header');
+						headerCell.textContent = headerText;
+						myTable.appendChild(headerCell);
+					});
+
+					// 生成數據行
+					const displayDate = new Date(startDate); // 使用一個副本來避免修改原始日期
+					for (let i = 0; i < 7; i++) { // 7 行數據
+						const ordinalDate = getOrdinalDate(displayDate);
 						let nList = ordinalDate % 20;
 						switch (selectedOption.value) {
 							case '0': nList += 18;
@@ -211,74 +263,51 @@
 							case '3': nList += 13;
 							break;
 						}
-						const row = myTable.insertRow();
-						for (let j = 0; j < 4; j++) {
-							const cell = row.insertCell();
-							if (i === 0 && j === 0) {
-								cell.colSpan = 4;
-								cell.textContent = `${selectedOption.text}請假查詢`;
-								cell.style.fontSize = '40px';
-								break;
-							} else if ( i === 1) {
-								switch (j) {
-									case 0: cell.textContent = `日期`;
-									break;
-									case 1: cell.textContent = `班別`;
-									break;
-									case 2: cell.textContent = `請假代理`;
-									break;
-									case 3: cell.textContent = `半天`;
-									break;
-								}
-							} else {
-								const options = {weekday:"narrow"};
-								switch (j) {
-									case 0: cell.textContent =startDate.toLocaleDateString() + "(" + startDate.toLocaleDateString("zh-TW",options) + ")";
-									startDate.setDate(startDate.getDate() + 1); // 日期遞增一天
-									break;
-									case 1: cell.textContent = List[nList];
-									break;
-									case 2: cell.textContent = List1[selectedOption.value][nList];
-									break;
-									case 3: cell.textContent = List2[selectedOption.value][nList];
-									break;
-								}
-							}
-						}
+						
+						const options = {weekday:"narrow"};
+
+						const rowData = [
+							displayDate.toLocaleDateString() + "(" + displayDate.toLocaleDateString("zh-TW", options) + ")",
+							List[nList],
+							List1[selectedOption.value][nList],
+							List2[selectedOption.value][nList]
+						];
+
+						rowData.forEach(cellData => {
+							const cell = document.createElement('div');
+							cell.classList.add('grid-cell');
+							cell.textContent = cellData;
+							myTable.appendChild(cell);
+						});
+						
+						displayDate.setDate(displayDate.getDate() + 1); // 日期遞增一天
 					}
 				}
 
-				// 讀取股別memory
-				if (partMemory) {
-					part.value = partMemory;
+				// 更新網址的函式
+				function updateURL() {
+					const newDate = startDateInput.value;
+					const newPart = selectpart.value;
+					localStorage.setItem('partMemory', newPart);
+					window.location.href = `?date=${newDate}&part=${newPart}`;
 				}
 
 				// 建立表格
 				gentable();
 				
 				// 日期觸發器
-				startDateInput.addEventListener('change', () => {
-					if (startDateInput.value == '') {
-						const today = new Date();
-						FormatDate(today);
-					}
-					gentable();
-				});
+				startDateInput.addEventListener('change', updateURL);
 				
 				// 股別觸發器
-				selectpart.addEventListener('change', () => {
-					localStorage.setItem('partMemory', part.value);
-					gentable();
-				});
+				selectpart.addEventListener('change', updateURL);
 				
 				// 上週按鈕觸發器
 				const upbutton = document.getElementById('up');
 				upbutton.addEventListener('click', () => {
 					let newDate = new Date(startDateInput.value);
 					newDate.setDate(newDate.getDate() - 7);
-					newDate = FormatDate(newDate);
-					startDateInput.value = newDate;
-					gentable();
+					startDateInput.value = FormatDate(newDate);
+					updateURL();
 				});
 
 				// 下週按鈕出發器
@@ -286,9 +315,8 @@
 				downbutton.addEventListener('click', () => {
 					let newDate = new Date(startDateInput.value);
 					newDate.setDate(newDate.getDate() + 7);
-					newDate = FormatDate(newDate);
-					startDateInput.value = newDate;
-					gentable();
+					startDateInput.value = FormatDate(newDate);
+					updateURL();
 				});
 			
 			</script>

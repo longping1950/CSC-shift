@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset='utf-8'>
+		<title>中鋼班表查詢</title>
+		<link rel="shortcut icon" href="web/favicon.ico" type="image/x-icon">
+		<link rel="icon" href="web/favicon.ico" type="image/x-icon">
+		<style>
+			body {
+				display: flex;
+				flex-direction: column;
+				min-height: 100vh;
+				background-color: #7394b5;
+				font-family: Arial, sans-serif;
+				font-size: 22px;
+				margin: 0;
+				padding: 20px;
+			}
+			
+			span {
+				white-space: pre;
+			}
+
+			footer {
+				text-align: center;
+			}
+
+			.container {
+				max-width: 1200px;
+				margin: 0 auto;
+				background-color: white;
+				border-radius: 15px;
+				padding: 30px;
+				box-shadow: 0 0 20px rgba(0,0,0,0.1);
+			}
+
+			.content-wrapper {
+				flex-grow: 1; /* 讓內容區域填滿剩餘空間 */
+				width: 100%;
+				max-width: 800px;
+				margin: 0 auto;
+			}
+
+			.search-bar {
+				display: flex;
+				align-items: center;
+				gap: 20px;
+				margin-bottom: 30px;
+			}
+
+			.linkbutton {
+				background-color: #ecf0f1;
+				color: #2c3e50;
+				border: none;
+				padding: 10px 20px;
+				border-radius: 8px;
+				font-size: 18px;
+				cursor: pointer;
+				transition: all 0.3s ease;
+			}
+
+			.linkbutton:hover {
+				background-color: #bdc3c7;
+				transform: scale(1.05);
+			}
+
+			.button-right {
+				margin-left: auto;
+			}
+
+			.button-container {
+				display: flex;
+				justify-content: space-between;
+				margin-top: 20px;
+			}
+
+			.picture {
+				height: 24px;
+				cursor: pointer;
+				margin-left: auto;
+			}
+
+			input, select {
+				font-size: 16px;
+				padding: 8px 15px;
+				border-radius: 8px;
+				border: 1px solid #ddd;
+			}
+						
+			#Table {
+				width: 100%;
+				margin: 0 auto;
+				border-collapse: collapse;
+				background-color: #84abd2;
+				margin-top: 20px;
+				font-size: 20px;
+				border-radius: 15px;
+				overflow: hidden;
+			}
+			
+			#Table th {
+				color: white;
+				padding: 12px;
+				text-align: center;
+				border-bottom: 2px solid #2c3e50;
+			}
+			
+			#Table td {
+				padding: 10px;
+				text-align: center;
+			}
+			
+
+			.bottom {
+				font-size: 22px;
+				left: 0;
+				width: 100%;
+			}
+
+			@media (max-width: 768px) {
+				.container {
+					padding: 15px;
+				}
+				
+				input, select {
+					font-size: 14px;
+				}
+				
+				#Table th, #Table td {
+					padding: 8px;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="content-wrapper">
+			<div class="search-bar">
+				<span>日期:</span>
+				<input type="month" id="month" value="" />
+				<span>高光股別:</span>
+				<select id="part">
+					<option value=0 selected>無</option>
+					<option value=1>A股</option>
+					<option value=2>B股</option>
+					<option value=3>C股</option>
+					<option value=4>D股</option>
+				</select>
+				<button id="link1" class="linkbutton button-right" onclick="redirectToURL()">請假查詢</button>
+			</div>
+			<p></p>
+			
+			<table id="Table"></table>
+
+			<p></p>
+
+			<div class="button-container">
+				<button id="up" class="linkbutton">上個月</button>
+				<button id="down" class="linkbutton button-right">下個月</button>
+			</div>
+			
+			<script>
+				// 日期RESET
+				const today = new Date();
+				FormatMonth(today);
+
+				function FormatMonth(month) {  //初始化日期格
+					const yyyy = month.getFullYear();
+					const mm = String(month.getMonth() + 1).padStart(2, '0');
+					const FormattedMonth = yyyy + '-' + mm;
+					document.getElementById('month').value = FormattedMonth;
+					return FormattedMonth;
+				}
+
+				const selectpart = document.getElementById('part');
+				const monthInput = document.getElementById('month');
+				const myTable = document.getElementById('Table');
+				const hightlightMemory =localStorage.getItem('hightlightMemory');
+				// 建立list
+				let List = ["中","中","中","中","中","休","早","早","早","早","早","休","休","夜","夜","夜","夜","夜","休","休","中","中","中","中","中","休","早","早","早","早","早","休","休","夜","夜","夜","夜","夜","休","休"]
+				
+				function getOrdinalDate(date) {  //日期轉換成數字
+					// 將日期轉換為 UNIX 時間戳
+					const timestamp = Date.parse(date);
+					// 將時間戳轉換成天數
+					return Math.floor(timestamp / 86400000);
+				}
+
+				function redirectToURL() { //跳轉網頁
+					window.location.href = "https://longping1950.github.io/CSC-shift/schedule.html";
+				}
+
+				function gentable(name) {  //生成表格
+					// 取得月第一天日期
+					const startDate = new Date(monthInput.value);
+					const days = new Date(startDate.getFullYear(),startDate.getMonth()+1,0).getDate();
+					const selectedOption = selectpart.options[selectpart.selectedIndex];
+
+					// 清空表格
+					myTable.innerHTML = '';
+					// 生成表格
+					for (let i = 0; i < 8; i++) {
+						const row = myTable.insertRow();
+						if (i == 0) {
+							const cell = row.insertCell();
+							cell.colSpan = 14;
+							const options = {year:"numeric",month:"long"}
+							cell.textContent = startDate.toLocaleDateString('zh-TW',options);
+							cell.style.fontSize = '32px';
+						}
+						else if (i == 1) {
+							let weekdays = ["日","一","二","三","四","五","六"]
+							for (let w = 0; w < 7; w++) {
+								const cell = row.insertCell();
+								cell.colSpan = 2;
+								cell.textContent = weekdays[w];
+								cell.style.fontSize = '24px';
+							}
+						}
+						else {
+							let part1 = [];
+							let part2 = [];
+							
+							if (i >4 && startDate.getDate() < 7) {
+								break;
+							}
+							for (let w = 0; w < 7; w++) {
+								const cell = row.insertCell();
+								cell.colSpan = 2;
+								if (w < startDate.getDay() || (i >4 && startDate.getDate() < 7)) {
+									part1.push('','');
+									part2.push('','');
+								}
+								else if (startDate.getDate() <= days) {
+									cell.textContent = startDate.getDate();
+									cell.style.fontSize = '26px';
+									part1.push(getShift(startDate,18,'A'));
+									part1.push(getShift(startDate,3,'B'));
+									part2.push(getShift(startDate,8,'C'));
+									part2.push(getShift(startDate,13,'D'));
+									startDate.setDate(startDate.getDate()+1);
+								}
+							}
+							const row1 = myTable.insertRow();
+							for (let s = 0; s < 14; s++) {
+								const cell = row1.insertCell();
+								cell.textContent = part1[s];
+								cell.style.backgroundColor = '#f9f9f9';
+								cell.style.fontSize = '18px';
+								if (selectpart.value == 1 && part1[s] != '' && s%2 == 0) {
+									tableColor(part1[s],cell);
+								}
+								else if (selectpart.value == 2 && part1[s] != '' && s%2 != 0) {
+									tableColor(part1[s],cell);
+								}
+							}
+							const row2 = myTable.insertRow();
+							for (let s = 0; s < 14; s++) {
+								const cell = row2.insertCell();
+								cell.textContent = part2[s];
+								cell.style.fontSize = '18px';
+								cell.style.backgroundColor = '#f9f9f9';
+								if (selectpart.value == 3 && part1[s] != '' && s%2 == 0) {
+									tableColor(part2[s],cell);
+								}
+								else if (selectpart.value == 4 && part1[s] != '' && s%2 != 0) {
+									tableColor(part2[s],cell);
+								}
+							}
+						}
+						
+					}
+				}
+
+				function getShift(date,shift,part) {  //計算班別
+					const ordinalDate = getOrdinalDate(date);
+					let nList = ordinalDate % 20;
+					nList = nList + shift;
+					return part + List[nList];
+				}
+
+				function tableColor(part,cell) {  //班別上色
+					if (part.indexOf('早') != -1) {
+						cell.style.backgroundColor = "#9dd7db";
+					}
+					else if (part.indexOf('中') != -1) {
+						cell.style.backgroundColor = '#ceb98d';
+					}
+					else if (part.indexOf('夜') != -1) {
+						cell.style.backgroundColor = '#c6a1cf';
+					}
+					else if (part.indexOf('休') != -1) {
+						cell.style.backgroundColor = '#b1b1b1';
+					}
+				}
+
+				// 讀取股別memory
+				if (hightlightMemory) {
+					part.value = hightlightMemory;
+				}
+
+				// 建立表格
+				gentable();
+				
+				// 日期觸發器
+				monthInput.addEventListener('change', () => {
+					if (monthInput.value == '') {
+						const today = new Date();
+						FormatMonth(today);
+					}
+					gentable();
+				});
+				
+				// 股別觸發器
+				selectpart.addEventListener('change', () => {
+					localStorage.setItem('hightlightMemory', part.value);
+					gentable();
+				});
+				
+				// 上月按鈕觸發器
+				const upbutton = document.getElementById('up');
+				upbutton.addEventListener('click', () => {
+					let newDate = new Date(monthInput.value);
+					newDate = new Date(newDate.getFullYear(),newDate.getMonth()-1,1);
+					newDate = FormatMonth(newDate);
+					monthInput.value = newDate;
+					gentable();
+				});
+
+				// 下月按鈕出發器
+				const downbutton = document.getElementById('down');
+				downbutton.addEventListener('click', () => {
+					let newDate = new Date(monthInput.value);
+					newDate = new Date(newDate.getFullYear(),newDate.getMonth()+1,1);
+					newDate = FormatMonth(newDate);
+					console.log(newDate);
+					monthInput.value = newDate;
+					console.log(newDate);
+					gentable();
+				});
+			
+			</script>
+		</div>
+		<footer class="bottom">
+			<p>copyright &copy; 2025 longping.
+			<a href="https://github.com/longping1950/CSC-shift">
+				<img src="web/github-mark.png" alt="點擊前往專案" style="height: 24px; cursor: pointer;">
+			</a>
+			</p>
+		</footer>
+	</body>
+</html>
