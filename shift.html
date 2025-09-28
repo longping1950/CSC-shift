@@ -259,9 +259,9 @@
 <body>
     <div class="content-wrapper">
         <div class="search-bar">
-            <span>日期:</span>
+            <span id="label-date">日期:</span>
             <input type="month" id="month" value="" />
-            <span>顯示股別:</span>
+            <span id="label-showpart">顯示股別:</span>
             <div id="part-checkboxes">
                 <label><input type="checkbox" name="part" value="0"> A股</label>
                 <label><input type="checkbox" name="part" value="1"> B股</label>
@@ -296,6 +296,77 @@
     </footer>
     
     <script>
+        // --- 語言包：使用兩個字的班別名稱作為 Key，以匹配您的變數設定 ---
+        const LANG = {
+            'zh-TW': {
+                labels: { date: "日期:", showPart: "顯示股別:" },
+                weekdays: ["日", "一", "二", "三", "四", "五", "六"],
+                parts: ["A股", "B股", "C股", "D股"],
+                shifts: { 
+                    "中": "中班", 
+                    "休": "休假", 
+                    "早": "早班", 
+                    "夜": "夜班" 
+                },
+                buttons: { up: "上個月", down: "下個月", info: "請假查詢" },
+                modalTitle: (y, m, d, w) => `${y} 年 ${m} 月 ${d} 日 (星期${w})`,
+                modalParts: ["A股", "B股", "C股", "D股"],
+            },
+            'en-US': {
+                labels: { date: "Date:", showPart: "Show Part:" },
+                weekdays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+                parts: ["Part A", "Part B", "Part C", "Part D"],
+                shifts: { 
+                    "中": "A", 
+                    "休": "OFF", 
+                    "早": "M", 
+                    "夜": "N" 
+                },
+                buttons: { up: "Previous Month", down: "Next Month", info: "Leave Inquiry" },
+                modalTitle: (y, m, d, w) => `${w}, ${m}/${d}/${y}`,
+                modalParts: ["Part A", "Part B", "Part C", "Part D"],
+            }
+        };
+
+        // --- 語言選擇邏輯：網址 > 瀏覽器 > 預設 ---
+        const urlParams = new URLSearchParams(window.location.search);
+        let determinedLangCode = 'zh-TW';
+
+        if (urlParams.has('lang')) {
+            const paramLang = urlParams.get('lang');
+            if (LANG[paramLang]) {
+                determinedLangCode = paramLang;
+            }
+        } else if (navigator.language) {
+            let browserLang = navigator.language;
+            if (LANG[browserLang]) {
+                determinedLangCode = browserLang;
+            } else {
+                const baseLang = browserLang.split('-')[0];
+                if (baseLang === 'zh') {
+                    determinedLangCode = 'zh-TW'; 
+                } else if (baseLang === 'en') {
+                    determinedLangCode = 'en-US'; 
+                }
+            }
+        }
+
+        const currentLang = LANG[determinedLangCode];
+        // ------------------------------------------
+
+        // --- 靜態文字初始化 ---
+        document.getElementById('label-date').textContent = currentLang.labels.date;
+        document.getElementById('label-showpart').textContent = currentLang.labels.showPart;
+        document.getElementById('link1').textContent = currentLang.buttons.info;
+        document.getElementById('up').textContent = currentLang.buttons.up;
+        document.getElementById('down').textContent = currentLang.buttons.down;
+        
+        document.getElementsByName('part').values('0').textContent = ` ${currentLang.parts[0]}`;
+        document.getElementsByName('part').values('1').textContent = ` ${currentLang.parts[1]}`;
+        document.getElementsByName('part').values('2').textContent = ` ${currentLang.parts[2]}`;
+        document.getElementsByName('part').values('3').textContent = ` ${currentLang.parts[3]}`;
+        // ------------------------------------------
+
         const today = new Date();
         FormatMonth(today);
 
@@ -338,6 +409,21 @@
             return shiftList[nList];
         }
 
+        function getDailyShiftData(date) {
+            const dailyData = {};
+            
+            Object.keys(partShiftStarts).forEach(partKey => {
+                const [shiftName, shiftDayNumber] = getShift(date, partShiftStarts[partKey]);
+                
+                dailyData[partKey] = {
+                    shiftName: shiftName, 
+                    shiftDayNumber: shiftDayNumber,
+                };
+            });
+            
+            return dailyData;
+        }
+
         function redirectToURL() {
             window.location.href = "https://longping1950.github.io/CSC-shift/schedule.html";
         }
@@ -347,15 +433,19 @@
             const modal = document.getElementById('info-modal');
             const modalTitle = modal.querySelector('h2');
             const modalInfo = modal.querySelector('.modal-info');
-            const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
 
-            modalTitle.textContent = `${date.getFullYear()} 年 ${date.getMonth() + 1} 月 ${date.getDate()} 日 (星期${weekdays[date.getDay()]})`;
-            
+            const dayData = getDailyShiftData(date);
+
+            const weekdays = currentLang.weekdays; 
+            const dayName = weekdays[date.getDay()];
+
             let infoHtml = '';
-            infoHtml += `<p><strong>A股:</strong> ${getShift(date, partShiftStarts['0'])[0]}</p>`;
-            infoHtml += `<p><strong>B股:</strong> ${getShift(date, partShiftStarts['1'])[0]}</p>`;
-            infoHtml += `<p><strong>C股:</strong> ${getShift(date, partShiftStarts['2'])[0]}</p>`;
-            infoHtml += `<p><strong>D股:</strong> ${getShift(date, partShiftStarts['3'])[0]}</p>`;
+            
+            ['0', '1', '2', '3'].forEach((partKey, index) => {
+                const shiftName = dayData[partKey].shiftName; // *** NEW: 從資料中提取 shiftName ***
+                const translatedShift = currentLang.shifts[shiftName];
+                infoHtml += `<p><strong>${currentLang.modalParts[index]}:</strong> ${translatedShift}</p>`;
+            });
             
             modalInfo.innerHTML = infoHtml;
             modal.style.display = 'block';
@@ -370,8 +460,7 @@
         function renderCalendar() {
             calendarGrid.innerHTML = '';
             
-            const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
-            weekdays.forEach(day => {
+            currentLang.weekdays.forEach(day => {
                 const header = document.createElement('div');
                 header.classList.add('day-header');
                 header.textContent = day;
@@ -430,12 +519,12 @@
 
             for (let partValue = 0; partValue < 4; partValue++) {
                 const shiftIndex = partShiftStarts[partValue.toString()];
-                
                 let d = 1;
                 while (d <= daysInMonth) {
-                    const date = new Date(startDate.getFullYear(), startDate.getMonth(), d);
-                    const [shiftName, shiftDayNumber] = getShift(date, shiftIndex);
 
+                    const date = new Date(startDate.getFullYear(), startDate.getMonth(), d);
+                    const [shiftName, shiftDayNumber] = getShift(date, shiftIndex); 
+                    
                     const isStartOfShift = shiftDayNumber === 1;
                     const isStartOfMonth = d === 1;
                     const isStartOfWeek = date.getDay() === 0;
@@ -455,7 +544,7 @@
 
                         const shiftBar = document.createElement('div');
                         shiftBar.classList.add('shift-bar', shiftName);
-                        shiftBar.textContent = shiftName;
+                        shiftBar.textContent = currentLang.shifts[shiftName];
                         
                         shiftBar.style.width = `calc(${daySpan} * 100% + ${daySpan - 1}px * 2)`;
                         
