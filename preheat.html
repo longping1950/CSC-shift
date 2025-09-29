@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>多台車預熱計時器</title>
+    <link rel="shortcut icon" href="web/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="web/favicon.ico" type="image/x-icon">
     <style>
         /* 基礎樣式 */
         body {
@@ -20,10 +22,20 @@
         
         /* 新增：用於寬螢幕水平佈局的父容器 */
         .main-container {
-            max-width: 1700px; 
+            max-width: 1000px; 
             margin: 0 auto; /* 居中 */
+            flex-grow: 1;
+            width: 100%;
         }
         
+        footer {
+            text-align: center;
+        }
+
+        .github-logo {
+            height: 24px;
+            cursor: pointer;
+        }
 
         /* 每個台車區塊的容器 */
         .car-container {
@@ -33,8 +45,8 @@
             border-radius: 10px;
             background-color: white;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            max-width: 400px; /* 核心修正: 確保單欄或雙欄最大寬度為 400px */
-            width: 100%;     /* 核心修正: 確保在窄螢幕上能自適應 */
+            width: 400px; /* 核心修正: 確保單欄或雙欄最大寬度為 400px */
+            margin: 0 auto;
         }
         
         /* 標題 (CAR#1, CAR#2) */
@@ -355,7 +367,9 @@
             </div>
         </div>
         
-    </div> <div id="alertModal" class="modal">
+    </div> 
+    
+    <div id="alertModal" class="modal">
         <div class="modal-content">
             <div id="modal-title" class="modal-title"></div>
             <div id="modal-countdown" class="modal-countdown"></div>
@@ -363,6 +377,13 @@
         </div>
     </div>
 
+    <footer class="bottom">
+        <p>copyright &copy; 2025 longping.
+        <a href="https://github.com/longping1950/CSC-shift">
+            <img src="web/github-mark.png" alt="點擊前往專案" class="github-logo">
+        </a>
+        </p>
+    </footer>
 
     <script>
         // --- 核心變數結構化 ---
