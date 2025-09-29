@@ -9,13 +9,22 @@
         body {
             font-family: Arial, sans-serif;
             padding: 10px;
-            background-color: #f4f4f9;
-            
-            /* === 固定寬度 400px 與置中 === */
-            max-width: 400px;
-            margin: 0 auto; /* 置中 */
+            background-color: #7394b5;
+            margin: 0 auto; 
         }
         
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        
+        /* 新增：用於寬螢幕水平佈局的父容器 */
+        .main-container {
+            max-width: 1700px; 
+            margin: 0 auto; /* 居中 */
+        }
+        
+
         /* 每個台車區塊的容器 */
         .car-container {
             margin-bottom: 20px;
@@ -24,6 +33,8 @@
             border-radius: 10px;
             background-color: white;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 400px; /* 核心修正: 確保單欄或雙欄最大寬度為 400px */
+            width: 100%;     /* 核心修正: 確保在窄螢幕上能自適應 */
         }
         
         /* 標題 (CAR#1, CAR#2) */
@@ -69,12 +80,19 @@
             border-radius: 4px;
             font-size: 1em;
             text-align: center;
+            transition: opacity 0.3s; 
+        }
+        
+        /* 數值輸入框禁用時的樣式 */
+        input[type="number"]:disabled {
+            background-color: #e9ecef;
+            opacity: 0.6;
         }
         
         /* 開始時間輸入框樣式 (datetime-local) */
         input[type="datetime-local"] {
             display: inline-block !important; 
-            width: 150px; /* 增加寬度以容納日期 */
+            width: 150px; 
             margin-right: 5px;
             padding: 8px;
             font-size: 0.9em;
@@ -92,11 +110,13 @@
         button {
             padding: 8px 10px;
             margin-left: 5px;
+            font-size: 14px;
             cursor: pointer;
             border-radius: 4px;
             border: 1px solid #ccc;
             background-color: #f8f8f8;
             flex-shrink: 0; 
+            transition: opacity 0.3s; 
         }
         button.add-btn {
             background-color: #e0f7fa; 
@@ -104,6 +124,13 @@
             font-weight: bold;
             padding: 6px 8px; 
         }
+         /* 增加按鈕禁用時的樣式 */
+        button.add-btn:disabled {
+            background-color: #f0f0f0;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        
         button.reset-btn {
             background-color: #ffdddd;
             border-color: #ffaaaa;
@@ -149,105 +176,190 @@
             color: gray;
             margin-right: 5px; 
         }
+        
+        /* --- 模態警報樣式 (不變) --- */
+        .modal {
+            display: none; 
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4); 
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto; 
+            padding: 20px;
+            border: 5px solid red;
+            width: 80%; 
+            max-width: 300px;
+            text-align: center;
+            border-radius: 10px;
+            animation: modal-flash 0.5s infinite alternate; 
+        }
+        
+        @keyframes modal-flash {
+            from { border-color: red; box-shadow: 0 0 20px red; }
+            to { border-color: darkred; box-shadow: 0 0 10px darkred; }
+        }
+
+        .modal-title {
+            color: red;
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .modal-countdown {
+            color: darkred;
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .modal-close-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        
+        /* === 桌面版佈局 (寬度 > 850px) === */
+        @media (min-width: 850px) {
+            .main-container {
+                display: flex;
+                justify-content: center; /* 置中兩欄 */
+                gap: 20px; 
+                max-width: 840px; /* 約等於 400px * 2 + 20px gap */
+            }
+
+            .car-container {
+                /* 繼承 max-width: 400px; */
+                width: 400px; /* 確保在 flex 容器中為 400px */
+                min-width: 400px; /* 確保不會縮小 */
+            }
+        }
+        /* ================================== */
     </style>
 </head>
 <body>
+    <audio id="alarm-audio" loop preload="auto">
+        <source src="web/alarm.mp3" type="audio/mpeg"> 
+        Your browser does not support the audio element.
+    </audio>
 
-    <h1>多台車預熱計時系統</h1>
+    <h1>台車預熱計時系統</h1>
     
-    <div id="car-1" class="car-container">
-        <div class="car-title">
-            <span>CAR#1</span>
-            <button class="reset-btn" onclick="resetCar('1')">重置</button>
-        </div>
-        
-        <div class="input-group">
-            <label for="car-number-1">車號 (00-99):</label>
-            <input type="number" id="car-number-1" min="00" max="99" maxlength="2" value="" onchange="saveCarNumber('1')">
-        </div>
-
-        <div class="input-group start-time-group">
-            <label>開始時間:</label>
-            <span id="start-time-display-1" class="start-time-display">--:--</span>
-            <button onclick="setCurrentTime('1')">開始預熱</button>
-            <input type="datetime-local" id="start-time-1" onchange="updateStartTime('1')">
-        </div>
-        
-        <div class="input-group">
-            <label>升中火:</label>
-            <span id="countdown-display-medium-1" class="countdown-display">--:--</span>
-            <input type="number" id="set-duration-medium-1" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('1')"> 
-            <span class="unit-text">(小時)</span>
-            <button class="add-btn" onclick="adjustDuration('medium', 5, '1')">+5分</button>
-        </div>
-
-        <div class="input-group">
-            <label>升大火:</label>
-            <span id="countdown-display-high-1" class="countdown-display">--:--</span>
-            <input type="number" id="set-duration-high-1" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('1')"> 
-            <span class="unit-text">(小時)</span>
-            <button class="add-btn" onclick="adjustDuration('high', 5, '1')">+5分</button>
-        </div>
-
-        <div class="input-group">
-            <label>轉保溫:</label>
-            <span id="countdown-display-keepwarm-1" class="countdown-display">--:--</span>
-            <input type="number" id="set-duration-keepwarm-1" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('1')"> 
-            <span class="unit-text">(小時)</span>
-            <button class="add-btn" onclick="adjustDuration('keepwarm', 5, '1')">+5分</button>
-        </div>
-
-        <div class="input-group">
-            <label>已運行總時長:</label>
-            <span id="total-time-1" class="total-time-display time-alert-red">--:--</span>
-        </div>
-    </div>
+    <div class="main-container">
     
-    <div id="car-2" class="car-container">
-        <div class="car-title">
-            <span>CAR#2</span>
-            <button class="reset-btn" onclick="resetCar('2')">重置</button>
-        </div>
+        <div id="car-1" class="car-container">
+            <div class="car-title">
+                <span>CAR#1</span>
+                <button class="reset-btn" onclick="resetCar('1')">重置</button>
+            </div>
+            
+            <div class="input-group">
+                <label for="car-number-1">車號:</label>
+                <input type="number" id="car-number-1" min="00" max="99" maxlength="2" value="" onchange="saveCarNumber('1')">
+            </div>
 
-        <div class="input-group">
-            <label for="car-number-2">車號 (00-99):</label>
-            <input type="number" id="car-number-2" min="00" max="99" maxlength="2" value="" onchange="saveCarNumber('2')">
-        </div>
+            <div class="input-group start-time-group">
+                <label>開始時間:</label>
+                <span id="start-time-display-1" class="start-time-display">--:--</span>
+                <button onclick="setCurrentTime('1')">開始預熱</button>
+                <input type="datetime-local" id="start-time-1" onchange="updateStartTime('1')">
+            </div>
+            
+            <div class="input-group">
+                <label>升中火:</label>
+                <span id="countdown-display-medium-1" class="countdown-display">--:--</span>
+                <input type="number" id="set-duration-medium-1" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('1')"> 
+                <span class="unit-text">(小時)</span>
+                <button class="add-btn" id="add-btn-medium-1" onclick="adjustDuration('medium', 5, '1')">+5分</button>
+            </div>
 
-        <div class="input-group start-time-group">
-            <label>開始時間:</label>
-            <span id="start-time-display-2" class="start-time-display">--:--</span>
-            <button onclick="setCurrentTime('2')">開始預熱</button>
-            <input type="datetime-local" id="start-time-2" onchange="updateStartTime('2')">
+            <div class="input-group">
+                <label>升大火:</label>
+                <span id="countdown-display-high-1" class="countdown-display">--:--</span>
+                <input type="number" id="set-duration-high-1" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('1')"> 
+                <span class="unit-text">(小時)</span>
+                <button class="add-btn" id="add-btn-high-1" onclick="adjustDuration('high', 5, '1')">+5分</button>
+            </div>
+
+            <div class="input-group">
+                <label>轉保溫:</label>
+                <span id="countdown-display-keepwarm-1" class="countdown-display">--:--</span>
+                <input type="number" id="set-duration-keepwarm-1" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('1')"> 
+                <span class="unit-text">(小時)</span>
+                <button class="add-btn" id="add-btn-keepwarm-1" onclick="adjustDuration('keepwarm', 5, '1')">+5分</button>
+            </div>
+
+            <div class="input-group">
+                <label>預熱總時長:</label>
+                <span id="total-time-1" class="total-time-display time-alert-red">--:--</span>
+            </div>
         </div>
         
-        <div class="input-group">
-            <label>升中火:</label>
-            <span id="countdown-display-medium-2" class="countdown-display">--:--</span>
-            <input type="number" id="set-duration-medium-2" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('2')"> 
-            <span class="unit-text">(小時)</span>
-            <button class="add-btn" onclick="adjustDuration('medium', 5, '2')">+5分</button>
-        </div>
+        <div id="car-2" class="car-container">
+            <div class="car-title">
+                <span>CAR#2</span>
+                <button class="reset-btn" onclick="resetCar('2')">重置</button>
+            </div>
 
-        <div class="input-group">
-            <label>升大火:</label>
-            <span id="countdown-display-high-2" class="countdown-display">--:--</span>
-            <input type="number" id="set-duration-high-2" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('2')"> 
-            <span class="unit-text">(小時)</span>
-            <button class="add-btn" onclick="adjustDuration('high', 5, '2')">+5分</button>
-        </div>
+            <div class="input-group">
+                <label for="car-number-2">車號:</label>
+                <input type="number" id="car-number-2" min="00" max="99" maxlength="2" value="" onchange="saveCarNumber('2')">
+            </div>
 
-        <div class="input-group">
-            <label>轉保溫:</label>
-            <span id="countdown-display-keepwarm-2" class="countdown-display">--:--</span>
-            <input type="number" id="set-duration-keepwarm-2" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('2')"> 
-            <span class="unit-text">(小時)</span>
-            <button class="add-btn" onclick="adjustDuration('keepwarm', 5, '2')">+5分</button>
-        </div>
+            <div class="input-group start-time-group">
+                <label>開始時間:</label>
+                <span id="start-time-display-2" class="start-time-display">--:--</span>
+                <button onclick="setCurrentTime('2')">開始預熱</button>
+                <input type="datetime-local" id="start-time-2" onchange="updateStartTime('2')">
+            </div>
+            
+            <div class="input-group">
+                <label>升中火:</label>
+                <span id="countdown-display-medium-2" class="countdown-display">--:--</span>
+                <input type="number" id="set-duration-medium-2" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('2')"> 
+                <span class="unit-text">(小時)</span>
+                <button class="add-btn" id="add-btn-medium-2" onclick="adjustDuration('medium', 5, '2')">+5分</button>
+            </div>
 
-        <div class="input-group">
-            <label>已運行總時長:</label>
-            <span id="total-time-2" class="total-time-display time-alert-red">--:--</span>
+            <div class="input-group">
+                <label>升大火:</label>
+                <span id="countdown-display-high-2" class="countdown-display">--:--</span>
+                <input type="number" id="set-duration-high-2" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('2')"> 
+                <span class="unit-text">(小時)</span>
+                <button class="add-btn" id="add-btn-high-2" onclick="adjustDuration('high', 5, '2')">+5分</button>
+            </div>
+
+            <div class="input-group">
+                <label>轉保溫:</label>
+                <span id="countdown-display-keepwarm-2" class="countdown-display">--:--</span>
+                <input type="number" id="set-duration-keepwarm-2" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('2')"> 
+                <span class="unit-text">(小時)</span>
+                <button class="add-btn" id="add-btn-keepwarm-2" onclick="adjustDuration('keepwarm', 5, '2')">+5分</button>
+            </div>
+
+            <div class="input-group">
+                <label>預熱總時長:</label>
+                <span id="total-time-2" class="total-time-display time-alert-red">--:--</span>
+            </div>
+        </div>
+        
+    </div> <div id="alertModal" class="modal">
+        <div class="modal-content">
+            <div id="modal-title" class="modal-title"></div>
+            <div id="modal-countdown" class="modal-countdown"></div>
+            <button class="modal-close-btn" onclick="closeAlertModal()">關閉 / 已處理</button>
         </div>
     </div>
 
@@ -260,6 +372,12 @@
         const MINUTES_TO_HOURS = 1 / 60; 
         const THREE_HOURS_IN_MS = 3 * MS_PER_HOUR; 
         
+        // --- 新增常數: 超時 5 分鐘的毫秒數 (用於抑制陳舊警報) ---
+        const STALE_ALERT_THRESHOLD_MS = -5 * MS_PER_MINUTE; 
+        
+        let activeAlert = null; 
+        let modalTimerInterval = null; 
+
         const carStates = {
             '1': {
                 timerInterval: null,
@@ -274,8 +392,14 @@
                 alertSentKeepWarm: false,
             }
         };
+        
+        const modal = document.getElementById('alertModal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalCountdown = document.getElementById('modal-countdown');
+        const alarmAudio = document.getElementById('alarm-audio');
 
-        // --- Cookie 處理函數 ---
+
+        // --- Cookie 處理函數 (不變) ---
         function setCookie(name, value, days = 365) {
             const date = new Date();
             date.setTime(date.getTime() + (days * 24 * MS_PER_HOUR));
@@ -303,105 +427,104 @@
             return idBase + '-' + carId;
         }
 
+        /** 播放警報音效 */
         function playAlertSound() {
             try {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                const audioCtx = new AudioContext();
-                const oscillator = audioCtx.createOscillator();
-                const gainNode = audioCtx.createGain();
-
-                oscillator.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-
-                oscillator.type = 'sine'; 
-                oscillator.frequency.setValueAtTime(440, audioCtx.currentTime); 
-                gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime); 
-
-                oscillator.start();
-                oscillator.stop(audioCtx.currentTime + 0.5);
+                alarmAudio.currentTime = 0;
+                alarmAudio.play().catch(e => console.error("無法自動播放音效，需要使用者互動:", e));
             } catch (e) {
-                console.error("無法播放聲音，可能是瀏覽器限制:", e);
+                console.error("音訊播放錯誤:", e);
             }
-        }
-
-        // --- 核心函數 ---
-
-        /** 1. 設置當前日期時間並更新顯示 (24H 時間不變) */
-        function setCurrentTime(carId) {
-            const now = new Date();
-            
-            // 格式化為 YYYY-MM-DDTHH:MM (datetime-local 格式)
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const datetimeString = `${year}-${month}-${day}T${hours}:${minutes}`;
-
-            // 更新 input:datetime-local 
-            document.getElementById(getId('start-time', carId)).value = datetimeString;
-            
-            // 更新顯示的文字 (只顯示 HH:MM)
-            document.getElementById(getId('start-time-display', carId)).textContent = `${hours}:${minutes}`;
-            
-            saveAndUpdateTimer(carId);
-        }
-
-        /** 1.1. 處理 input:datetime-local 改變時的邏輯 (只更新顯示時間部分) */
-        function updateStartTime(carId) {
-            const timeInput = document.getElementById(getId('start-time', carId));
-            const datetimeValue = timeInput.value;
-            
-            if (datetimeValue) {
-                // 從 YYYY-MM-DDTHH:MM 中提取 HH:MM
-                const timePart = datetimeValue.split('T')[1]; 
-                document.getElementById(getId('start-time-display', carId)).textContent = timePart || '--:--';
-            } else {
-                document.getElementById(getId('start-time-display', carId)).textContent = '--:--';
-            }
-            
-            saveAndUpdateTimer(carId);
         }
         
-        /** 1.2. 儲存車號 */
-        function saveCarNumber(carId) {
-            const carNumber = document.getElementById(getId('car-number', carId)).value;
-            setCookie(`car_${carId}_carNumber`, carNumber);
+        /** 停止警報音效 */
+        function stopAlertSound() {
+            alarmAudio.pause();
+            alarmAudio.currentTime = 0;
+        }
+        
+        /** 更新模態視窗中的超時時間顯示 */
+        function updateModalCountdown(remainingMs) {
+            if (remainingMs <= 0) {
+                // Calculate overdue minutes
+                const overdueMinutes = Math.ceil(Math.abs(remainingMs) / MS_PER_MINUTE);
+                modalCountdown.textContent = `已超時 ${overdueMinutes} 分`;
+            } else {
+                const totalMinutes = Math.floor(remainingMs / MS_PER_MINUTE);
+                const hours = Math.floor(totalMinutes / 60);
+                const minutes = totalMinutes % 60;
+                
+                const countdownDisplay = 
+                    String(hours).padStart(2, '0') + ':' + 
+                    String(minutes).padStart(2, '0');
+                
+                modalCountdown.textContent = `剩餘: ${countdownDisplay}`; 
+            }
         }
 
-
-        /** 2. 調整單一階段的時長 */
-        function adjustDuration(stage, minutes, carId) {
-            const inputId = getId(`set-duration-${stage}`, carId);
-            const inputElement = document.getElementById(inputId);
+        /** 顯示警報模態視窗 */
+        function showAlertModal(carId, stage, endTimeMs) {
+            const carNumber = document.getElementById(getId('car-number', carId)).value || 'N/A';
+            let stageTitle = '';
             
-            let currentHours = parseFloat(inputElement.value) || 0;
-            const hoursToAdd = minutes * MINUTES_TO_HOURS; 
+            if (stage === 'medium') { stageTitle = '升中火'; }
+            else if (stage === 'high') { stageTitle = '升大火'; }
+            else if (stage === 'keepwarm') { stageTitle = '轉保溫'; }
             
-            let newHours = currentHours + hoursToAdd;
+            modalTitle.textContent = `CAR#${carId} (${carNumber}) - ${stageTitle} ！`;
             
-            // 確保輸入框顯示為小數點後一位
-            inputElement.value = newHours.toFixed(1); 
+            const initialRemainingMs = endTimeMs - new Date().getTime();
+            updateModalCountdown(initialRemainingMs); 
             
-            saveAndUpdateTimer(carId);
+            modal.style.display = 'block';
+            playAlertSound();
+            
+            activeAlert = { carId, stage, endTimeMs };
+            
+            if (modalTimerInterval) {
+                clearInterval(modalTimerInterval);
+            }
+            
+            modalTimerInterval = setInterval(() => {
+                const now = new Date().getTime();
+                const newRemainingMs = activeAlert.endTimeMs - now;
+                updateModalCountdown(newRemainingMs);
+            }, 1000);
         }
+
+        /** 關閉警報模態視窗 */
+        function closeAlertModal() {
+            if (modalTimerInterval) {
+                clearInterval(modalTimerInterval);
+                modalTimerInterval = null;
+            }
+            
+            if (activeAlert) {
+                // 在 carStates 中設置該階段的 alertSent 為 true (代表警報已處理過)
+                const state = carStates[activeAlert.carId];
+                const stage = activeAlert.stage;
+                const capitalizedStage = stage.charAt(0).toUpperCase() + stage.slice(1);
+                state[`alertSent${capitalizedStage}`] = true;
+                
+                activeAlert = null;
+            }
+            stopAlertSound();
+            modal.style.display = 'none';
+        }
+
 
         /** 3. 儲存設定並自動啟動/更新計時器 */
         function saveAndUpdateTimer(carId) {
-            // 3.1 儲存當前設定到 Cookie
-            // 儲存的是完整的 YYYY-MM-DDTHH:MM 字串
             const startTime = document.getElementById(getId('start-time', carId)).value; 
             const durationMedium = document.getElementById(getId('set-duration-medium', carId)).value;
             const durationHigh = document.getElementById(getId('set-duration-high', carId)).value;
             const durationKeepWarm = document.getElementById(getId('set-duration-keepwarm', carId)).value;
-            // Car Number 僅在 saveCarNumber() 中處理
 
             setCookie(`car_${carId}_startTime`, startTime);
             setCookie(`car_${carId}_durationMedium`, durationMedium);
             setCookie(`car_${carId}_durationHigh`, durationHigh);
             setCookie(`car_${carId}_durationKeepWarm`, durationKeepWarm);
 
-            // 3.2 啟動/更新計時器
             autoStartTimer(carId);
         }
 
@@ -411,7 +534,7 @@
             
             clearInterval(state.timerInterval); 
             
-            // 重設提醒狀態
+            // 重設提醒狀態 (允許下次歸零時彈窗)
             state.alertSentMedium = false;
             state.alertSentHigh = false;
             state.alertSentKeepWarm = false;
@@ -419,75 +542,182 @@
             const startTimeInput = document.getElementById(getId('start-time', carId)).value;
 
             if (!startTimeInput) {
-                // 清空顯示
+                // 清空顯示和閃爍
                 document.getElementById(getId('total-time', carId)).textContent = '--:--';
-                document.getElementById(getId('total-time', carId)).classList.remove('time-alert-red', 'time-alert-green');
                 document.getElementById(getId('countdown-display-medium', carId)).textContent = '--:--';
                 document.getElementById(getId('countdown-display-high', carId)).textContent = '--:--';
                 document.getElementById(getId('countdown-display-keepwarm', carId)).textContent = '--:--';
+                document.getElementById(getId('countdown-display-medium', carId)).classList.remove('flashing');
+                document.getElementById(getId('countdown-display-high', carId)).classList.remove('flashing');
+                document.getElementById(getId('countdown-display-keepwarm', carId)).classList.remove('flashing');
                 return;
             }
             
-            // 移除所有閃爍效果
-            document.getElementById(getId('countdown-display-medium', carId)).classList.remove('flashing');
-            document.getElementById(getId('countdown-display-high', carId)).classList.remove('flashing');
-            document.getElementById(getId('countdown-display-keepwarm', carId)).classList.remove('flashing');
-
-            // 立即執行一次更新，然後設定定時器 (每秒更新)
             updateAllTimers(carId);
             state.timerInterval = setInterval(() => updateAllTimers(carId), 1000); 
         }
 
         /** 5. 主更新函數：計算總時長和三個倒數計時 */
         function updateAllTimers(carId) {
-            const state = carStates[carId];
-            const startTimeInput = document.getElementById(getId('start-time', carId)).value; // YYYY-MM-DDTHH:MM
+            const startTimeInput = document.getElementById(getId('start-time', carId)).value; 
             const now = new Date(); 
             
             if (!startTimeInput) return; 
 
-            // --- 準備基礎時間 ---
-            // 將 datetime-local 格式轉換為 Date 物件
             let startTime = new Date(startTimeInput);
             
-            // *** 移除原有的跨日處理邏輯 ***
-            // 因為現在有日期資訊，不需要猜測是否是昨天
-
-            
-            // --- A. 計算已運行總時長 (HH:MM) 並更新顏色 ---
-            // 只有在開始時間是過去時才計算運行時間
             const elapsedMs = now.getTime() - startTime.getTime();
             
             if (elapsedMs < 0) {
-                 // 開始時間在未來，總時長顯示 00:00
                 updateTotalTimeDisplay(0, carId);
             } else {
                 updateTotalTimeDisplay(elapsedMs, carId);
             }
             
-            // --- B. 計算三個累計倒數計時 ---
             const durationMediumHours = parseFloat(document.getElementById(getId('set-duration-medium', carId)).value);
             const durationHighHours = parseFloat(document.getElementById(getId('set-duration-high', carId)).value);
             const durationKeepWarmHours = parseFloat(document.getElementById(getId('set-duration-keepwarm', carId)).value);
 
-            // 1. 升中火結束時間 (EndTime1)
             const endTimeMedium = startTime.getTime() + (durationMediumHours * MS_PER_HOUR);
-
-            // 2. 升大火結束時間 (EndTime2)
             const endTimeHigh = endTimeMedium + (durationHighHours * MS_PER_HOUR);
-
-            // 3. 轉保溫結束時間 (EndTime3)
             const endTimeKeepWarm = endTimeHigh + (durationKeepWarmHours * MS_PER_HOUR);
 
-            // 執行每個計時器的更新和提醒檢查
-            checkCountdownAndAlert('medium', endTimeMedium, now.getTime(), carId, state);
-            checkCountdownAndAlert('high', endTimeHigh, now.getTime(), carId, state);
-            checkCountdownAndAlert('keepwarm', endTimeKeepWarm, now.getTime(), carId, state);
+            checkCountdownAndAlert('medium', endTimeMedium, now.getTime(), carId, carStates[carId]);
+            checkCountdownAndAlert('high', endTimeHigh, now.getTime(), carId, carStates[carId]);
+            checkCountdownAndAlert('keepwarm', endTimeKeepWarm, now.getTime(), carId, carStates[carId]);
         }
 
-        /** 6. 重置單一台車的所有狀態和設定 */
+        /**
+         * 檢查倒數狀態並處理提醒
+         */
+        function checkCountdownAndAlert(stage, endTimeMs, currentTimeMs, carId, state) {
+            let remainingMs = endTimeMs - currentTimeMs;
+            const displayId = getId(`countdown-display-${stage}`, carId);
+            const element = document.getElementById(displayId);
+            
+            const durationInput = document.getElementById(getId(`set-duration-${stage}`, carId));
+            const addButton = document.getElementById(getId(`add-btn-${stage}`, carId)); 
+            
+            const capitalizedStage = stage.charAt(0).toUpperCase() + stage.slice(1);
+            let alertFlag = state[`alertSent${capitalizedStage}`];
+            
+            // 核心: 判斷顯示分鐘數是否為 0
+            const totalMinutes = Math.floor(remainingMs / MS_PER_MINUTE);
+
+            if (totalMinutes <= 0) { 
+                // 1. 歸零時鎖定輸入和按鈕
+                durationInput.disabled = true;
+                addButton.disabled = true;
+                
+                // 2. 顯示並【永遠閃爍】
+                element.textContent = '00:00';
+                element.classList.add('flashing'); 
+                
+                // 3. 警報彈窗: 
+                // 條件 1: 警報未被處理過 (!alertFlag)
+                // 條件 2: 剩餘時間尚未超時過久 (remainingMs > STALE_ALERT_THRESHOLD_MS)
+                // 條件 3: 沒有其他警報正在顯示 (!activeAlert)
+                if (!alertFlag && remainingMs > STALE_ALERT_THRESHOLD_MS) {
+                   if (!activeAlert) { 
+                       showAlertModal(carId, stage, endTimeMs); 
+                   }
+                }
+
+            } else {
+                // 倒數中 (totalMinutes > 0)
+                
+                // 1. 確保輸入和按鈕已啟用
+                durationInput.disabled = false;
+                addButton.disabled = false;
+
+                // 2. 顯示倒數時間
+                element.classList.remove('flashing');
+                
+                const hours = Math.floor(totalMinutes / 60);
+                const minutes = totalMinutes % 60;
+
+                const countdownDisplay = 
+                    String(hours).padStart(2, '0') + ':' + 
+                    String(minutes).padStart(2, '0');
+                
+                element.textContent = countdownDisplay;
+            }
+        }
+        
+        // --- 其他輔助函數 (保持不變) ---
+        function setCurrentTime(carId) {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const datetimeString = `${year}-${month}-${day}T${hours}:${minutes}`;
+
+            document.getElementById(getId('start-time', carId)).value = datetimeString;
+            document.getElementById(getId('start-time-display', carId)).textContent = `${hours}:${minutes}`;
+            
+            saveAndUpdateTimer(carId);
+        }
+
+        function updateStartTime(carId) {
+            const timeInput = document.getElementById(getId('start-time', carId));
+            const datetimeValue = timeInput.value;
+            
+            if (datetimeValue) {
+                const timePart = datetimeValue.split('T')[1]; 
+                document.getElementById(getId('start-time-display', carId)).textContent = timePart || '--:--';
+            } else {
+                document.getElementById(getId('start-time-display', carId)).textContent = '--:--';
+            }
+            
+            saveAndUpdateTimer(carId);
+        }
+        
+        function saveCarNumber(carId) {
+            const carNumber = document.getElementById(getId('car-number', carId)).value;
+            setCookie(`car_${carId}_carNumber`, carNumber);
+        }
+
+
+        function adjustDuration(stage, minutes, carId) {
+            const inputId = getId(`set-duration-${stage}`, carId);
+            const inputElement = document.getElementById(inputId);
+            
+            let currentHours = parseFloat(inputElement.value) || 0;
+            const hoursToAdd = minutes * MINUTES_TO_HOURS; 
+            
+            let newHours = currentHours + hoursToAdd;
+            
+            inputElement.value = newHours.toFixed(1); 
+            
+            saveAndUpdateTimer(carId);
+        }
+        
+        function updateTotalTimeDisplay(elapsedMs, carId) {
+            const totalElement = document.getElementById(getId('total-time', carId));
+
+            const totalMinutes = Math.floor(elapsedMs / MS_PER_MINUTE);
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+
+            const totalTimeDisplay = 
+                String(hours).padStart(2, '0') + ':' + 
+                String(minutes).padStart(2, '0');
+            
+            totalElement.textContent = totalTimeDisplay;
+            
+            if (elapsedMs < THREE_HOURS_IN_MS) {
+                totalElement.classList.remove('time-alert-green');
+                totalElement.classList.add('time-alert-red');
+            } else {
+                totalElement.classList.remove('time-alert-red');
+                totalElement.classList.add('time-alert-green');
+            }
+        }
+
         function resetCar(carId) {
-            if (!confirm(`確定要重置 CAR#${carId} 的所有計時和設定嗎？`)) {
+            if (!confirm(`確定要重置 CAR#${carId} 嗎？`)) {
                 return;
             }
             
@@ -508,12 +738,24 @@
             document.getElementById(getId('set-duration-high', carId)).value = '1.0';
             document.getElementById(getId('set-duration-keepwarm', carId)).value = '1.0';
             
-            // 清空顯示
+            // 清空顯示和閃爍
             document.getElementById(getId('total-time', carId)).textContent = '--:--';
             document.getElementById(getId('total-time', carId)).classList.remove('time-alert-red', 'time-alert-green');
             document.getElementById(getId('countdown-display-medium', carId)).textContent = '--:--';
             document.getElementById(getId('countdown-display-high', carId)).textContent = '--:--';
             document.getElementById(getId('countdown-display-keepwarm', carId)).textContent = '--:--';
+            document.getElementById(getId('countdown-display-medium', carId)).classList.remove('flashing');
+            document.getElementById(getId('countdown-display-high', carId)).classList.remove('flashing');
+            document.getElementById(getId('countdown-display-keepwarm', carId)).classList.remove('flashing');
+            
+            // 重新啟用所有輸入和按鈕
+            const stages = ['medium', 'high', 'keepwarm'];
+            stages.forEach(stage => {
+                const durationInput = document.getElementById(getId(`set-duration-${stage}`, carId));
+                const addButton = document.getElementById(getId(`add-btn-${stage}`, carId));
+                if(durationInput) durationInput.disabled = false;
+                if(addButton) addButton.disabled = false;
+            });
             
             // 清除所有相關 Cookie
             eraseCookie(`car_${carId}_startTime`);
@@ -522,12 +764,12 @@
             eraseCookie(`car_${carId}_durationKeepWarm`);
             eraseCookie(`car_${carId}_carNumber`);
 
-            alert(`CAR#${carId} 已重置。`);
+            // 如果有彈窗正在顯示，且屬於當前重置的車號，則關閉
+            if (activeAlert && activeAlert.carId === carId) {
+                closeAlertModal(); 
+            }
         }
 
-        // --- 初始化與載入 ---
-        
-        /** 載入並恢復單一台車的狀態 */
         function loadCarState(carId) {
             const startTime = getCookie(`car_${carId}_startTime`);
             const durationMedium = getCookie(`car_${carId}_durationMedium`);
@@ -535,20 +777,15 @@
             const durationKeepWarm = getCookie(`car_${carId}_durationKeepWarm`);
             const carNumber = getCookie(`car_${carId}_carNumber`);
             
-            // 恢復時長設定
             if (durationMedium) document.getElementById(getId('set-duration-medium', carId)).value = parseFloat(durationMedium).toFixed(1);
             if (durationHigh) document.getElementById(getId('set-duration-high', carId)).value = parseFloat(durationHigh).toFixed(1);
             if (durationKeepWarm) document.getElementById(getId('set-duration-keepwarm', carId)).value = parseFloat(durationKeepWarm).toFixed(1);
             
-            // 恢復車號
             if (carNumber) document.getElementById(getId('car-number', carId)).value = carNumber;
 
-            // 恢復開始日期時間並啟動計時器
             if (startTime) {
-                // 將值賦給 input:datetime-local (格式: YYYY-MM-DDTHH:MM)
                 document.getElementById(getId('start-time', carId)).value = startTime;
                 
-                // 將值賦給顯示文字 (只顯示 HH:MM)
                 const timePart = startTime.split('T')[1]; 
                 document.getElementById(getId('start-time-display', carId)).textContent = timePart || '--:--';
                 
@@ -556,79 +793,16 @@
             }
         }
 
+
         document.addEventListener('DOMContentLoaded', () => {
-            // 檢查所有台車，如果 Cookie 有記錄就恢復狀態
             ['1', '2'].forEach(loadCarState);
+            
+            window.onclick = function(event) {
+                if (event.target === modal) {
+                    // Do nothing, force user to click the close button
+                }
+            }
         });
-
-        // --- 次要函數 (保持兼容性) ---
-        
-        function updateTotalTimeDisplay(elapsedMs, carId) {
-            const totalElement = document.getElementById(getId('total-time', carId));
-
-            const totalMinutes = Math.floor(elapsedMs / MS_PER_MINUTE);
-            const hours = Math.floor(totalMinutes / 60);
-            const minutes = totalMinutes % 60;
-
-            const totalTimeDisplay = 
-                String(hours).padStart(2, '0') + ':' + 
-                String(minutes).padStart(2, '0');
-            
-            totalElement.textContent = totalTimeDisplay;
-            
-            // 顏色切換邏輯
-            if (elapsedMs < THREE_HOURS_IN_MS) {
-                totalElement.classList.remove('time-alert-green');
-                totalElement.classList.add('time-alert-red');
-            } else {
-                totalElement.classList.remove('time-alert-red');
-                totalElement.classList.add('time-alert-green');
-            }
-        }
-
-        /**
-         * 檢查倒數狀態並處理提醒 (優化通知觸發邏輯)
-         */
-        function checkCountdownAndAlert(stage, endTimeMs, currentTimeMs, carId, state) {
-            let remainingMs = endTimeMs - currentTimeMs;
-            const displayId = getId(`countdown-display-${stage}`, carId);
-            const element = document.getElementById(displayId);
-            
-            let alertFlag = state[`alertSent${stage.charAt(0).toUpperCase() + stage.slice(1)}`];
-            const carNumber = document.getElementById(getId('car-number', carId)).value || 'N/A';
-            let alertMessage = `CAR#${carId} (${carNumber})：`;
-
-            if (stage === 'medium') { alertMessage += '「升中火」時間到！'; }
-            else if (stage === 'high') { alertMessage += '「升大火」時間到！'; }
-            else if (stage === 'keepwarm') { alertMessage += '「轉保溫」時間到！'; }
-            
-            if (remainingMs <= 0) {
-                // 1. 時間已過，檢查是否剛好在 00:00:xx 附近 (即 0ms 到 -1000ms 之間)
-                if (remainingMs > -MS_PER_SECOND && !alertFlag) {
-                    playAlertSound(); 
-                    alert(alertMessage); 
-                    state[`alertSent${stage.charAt(0).toUpperCase() + stage.slice(1)}`] = true;
-                } 
-                
-                // 2. 顯示並閃爍
-                element.textContent = '00:00';
-                element.classList.add('flashing'); 
-
-            } else {
-                // 倒數中
-                element.classList.remove('flashing');
-                
-                const totalMinutes = Math.floor(remainingMs / MS_PER_MINUTE);
-                const hours = Math.floor(totalMinutes / 60);
-                const minutes = totalMinutes % 60;
-
-                const countdownDisplay = 
-                    String(hours).padStart(2, '0') + ':' + 
-                    String(minutes).padStart(2, '0');
-                
-                element.textContent = countdownDisplay;
-            }
-        }
     </script>
 
 </body>
