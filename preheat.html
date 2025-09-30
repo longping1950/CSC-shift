@@ -7,61 +7,86 @@
     <link rel="shortcut icon" href="web/favicon.ico" type="image/x-icon">
     <link rel="icon" href="web/favicon.ico" type="image/x-icon">
     <style>
-        /* 基礎樣式 */
+        html, body {
+            height: 100%; 
+        }
         body {
             font-family: Arial, sans-serif;
             padding: 10px;
             background-color: #7394b5;
             margin: 0 auto; 
+            
+            /* Footer 置底核心設定 */
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh; 
         }
         
-        /* === 標題及音量控制容器樣式 === */
+        /* === 2. 標題及音量控制容器樣式 (調整順序並確保置中) === */
         .header-container {
             display: flex;
             align-items: center;
-            justify-content: space-between; /* 讓三部分分佈開 */
+            justify-content: space-between; 
             margin: 0 auto 20px auto; 
-            max-width: 840px; /* 寬螢幕下與 main-container 對齊 */
+            max-width: 840px; 
+            width: 100%;
             padding: 0 10px;
-        }
-
-        .header-content {
-            flex-grow: 1;
-            text-align: center;
+            flex-shrink: 0; 
         }
 
         .volume-control {
             display: flex;
-            align-items: center;
-            width: 120px; /* 確定寬度，以便 spacer 匹配 */
+            flex-direction: column; 
+            align-items: flex-end; 
+            width: 90px; 
             flex-shrink: 0;
             color: #333;
             font-weight: bold;
         }
+        
+        .volume-control label {
+            margin-right: 0; 
+            margin-bottom: 3px; 
+        }
 
         .volume-spacer {
-            width: 120px;
+            width: 90px; 
             flex-shrink: 0;
         }
-        /* ================================ */
-        
+
+        .header-content {
+            flex-grow: 1; 
+            text-align: center;
+        }
+
+        #volume-slider {
+            width: 80px;
+            margin-left: 5px;
+            vertical-align: middle;
+        }
+
         h1 {
             color: #333;
             margin: 0; 
             padding: 0;
-            font-size: 2.5em; /* 調整字體大小 (手機版) */
+            font-size: 2.5em; 
+            white-space: nowrap; 
+            min-width: 250px; 
         }
+        /* ================================ */
         
-        /* 新增：用於寬螢幕水平佈局的父容器 */
         .main-container {
             max-width: 1000px; 
-            margin: 0 auto; /* 居中 */
-            flex-grow: 1;
+            margin: 0 auto; 
+            flex-grow: 1; 
             width: 100%;
         }
         
         footer {
             text-align: center;
+            padding: 10px 0;
+            margin-top: 20px; 
+            flex-shrink: 0; 
         }
 
         .github-logo {
@@ -69,7 +94,6 @@
             cursor: pointer;
         }
 
-        /* 每個台車區塊的容器 */
         .car-container {
             margin-bottom: 20px;
             padding: 15px;
@@ -77,11 +101,11 @@
             border-radius: 10px;
             background-color: white;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            width: 400px; /* 確保單欄或雙欄最大寬度為 400px */
+            width: 400px; 
+            height: 360px;
             margin: 0 auto;
         }
         
-        /* 標題 (CAR#1, CAR#2) */
         .car-title {
             font-size: 1.4em;
             font-weight: bold;
@@ -94,7 +118,6 @@
             align-items: center;
         }
 
-        /* Flexbox 佈局 */
         .input-group {
             display: flex;
             align-items: center;
@@ -102,7 +125,6 @@
             flex-wrap: wrap; 
         }
         
-        /* 針對開始時間的特殊排版 */
         .start-time-group {
             border-bottom: 1px dashed #eee;
             padding-bottom: 10px;
@@ -116,7 +138,6 @@
             margin-right: 8px;
         }
         
-        /* 數值輸入框樣式 */
         input[type="number"] {
             width: 55px;
             padding: 8px;
@@ -127,22 +148,19 @@
             transition: opacity 0.3s; 
         }
         
-        /* 數值輸入框禁用時的樣式 */
         input[type="number"]:disabled {
             background-color: #e9ecef;
             opacity: 0.6;
         }
         
-        /* 開始時間輸入框樣式 (datetime-local) */
         input[type="datetime-local"] {
             display: inline-block !important; 
-            width: 150px; 
+            width: 200px; 
             margin-right: 5px;
             padding: 8px;
             font-size: 0.9em;
         }
         
-        /* 顯示設定時間的文字樣式 */
         .start-time-display {
             font-size: 1.1em;
             font-weight: bold;
@@ -168,7 +186,7 @@
             font-weight: bold;
             padding: 6px 8px; 
         }
-         /* 增加按鈕禁用時的樣式 */
+         
         button.add-btn:disabled {
             background-color: #f0f0f0;
             cursor: not-allowed;
@@ -182,39 +200,61 @@
             font-weight: bold;
             margin-left: auto; 
         }
+        
+        .car-number-group button {
+            margin-left: auto; 
+        }
 
-        /* 倒數顯示樣式 */
+
         .countdown-display {
             font-size: 1.3em; 
-            color: #d9534f;
             font-weight: bold;
             min-width: 60px;
             text-align: right;
             margin-right: 15px;
         }
         
-        /* 總時間基礎樣式 */
+        /* 倒數計時 - 綠色 (>= 5 分鐘) */
+        .time-safe {
+            color: #333; 
+        }
+        
+        /* 倒數計時 - 警示色 (< 5 分鐘或歸零) */
+        .time-warning {
+            color: #d9534f; 
+        }
+        
+        /* 總時長顯示容器 */
         .total-time-display {
-            font-size: 1.5em; 
+            font-size: 2.5em; 
             font-weight: bold;
             margin-top: 5px;
             padding: 5px 0;
+            /* 必須設定為 inline-flex 才能讓內容物保持一行並應用顏色 */
+            display: inline-flex; 
+            align-items: center; 
         }
         
-        /* === 總時長顏色狀態 === */
-        .time-alert-red { color: #dc3545; }
-        .time-alert-green { color: #28a745; }
+        /* === 總時長顏色狀態 (針對數字) === */
+        .total-time-alert-red { color: #dc3545; }
+        .total-time-alert-green { color: #28a745; }
+        
+        /* 總時長閃爍樣式容器 (僅影響冒號) */
+        .total-time-display .colon.flashing-colon {
+            animation: blink-colon 1s step-end infinite;
+        }
+        
+        /* 閃爍動畫，讓冒號在顏色和透明度間切換 */
+        @keyframes blink-colon {
+            50% { opacity: 0; } 
+        }
         /* ======================== */
         
-        /* 閃爍樣式 */
+        /* 歸零或超時閃爍 (已取消) */
         .flashing {
-            animation: blinker 1s linear infinite;
             color: red !important;
         }
-        @keyframes blinker {
-            50% { opacity: 0; }
-        }
-        /* 輔助文字 */
+
         .unit-text {
             font-size: 0.8em; 
             color: gray;
@@ -279,21 +319,18 @@
         @media (min-width: 850px) {
             .main-container {
                 display: flex;
-                justify-content: center; /* 置中兩欄 */
+                justify-content: center; 
                 gap: 20px; 
-                max-width: 840px; /* 約等於 400px * 2 + 20px gap */
+                max-width: 840px; 
             }
 
             .car-container {
-                /* 繼承 max-width: 400px; */
-                width: 400px; /* 確保在 flex 容器中為 400px */
-                min-width: 400px; /* 確保不會縮小 */
+                width: 400px; 
+                min-width: 400px; 
             }
             
-            /* 新增：對齊 header-container 與 main-container */
-            .header-container {
-                max-width: 840px; 
-                margin: 0 auto 20px auto; /* 居中並保持下方間距 */
+            h1 {
+                font-size: 3em; 
             }
         }
         /* ================================== */
@@ -311,9 +348,10 @@
         <div class="header-content">
             <h1>台車預熱計時系統</h1>
         </div>
-        
+
         <div class="volume-control">
-            <input type="range" id="volume-slider" min="0" max="100" value="50">
+            <label for="volume-slider">警報音量</label>
+            <input type="range" id="volume-slider" min="0" max="100">
         </div>
     </div>
     
@@ -325,21 +363,21 @@
                 <button class="reset-btn" onclick="resetCar('1')">重置</button>
             </div>
             
-            <div class="input-group">
+            <div class="input-group car-number-group">
                 <label for="car-number-1">車號:</label>
                 <input type="number" id="car-number-1" min="00" max="99" maxlength="2" value="" onchange="saveCarNumber('1')">
+                <button onclick="setCurrentTime('1')" class="start-preheat-btn">開始預熱</button>
             </div>
 
             <div class="input-group start-time-group">
                 <label>開始時間:</label>
                 <span id="start-time-display-1" class="start-time-display">--:--</span>
-                <button onclick="setCurrentTime('1')">開始預熱</button>
                 <input type="datetime-local" id="start-time-1" onchange="updateStartTime('1')">
             </div>
             
             <div class="input-group">
                 <label>升中火:</label>
-                <span id="countdown-display-medium-1" class="countdown-display">--:--</span>
+                <span id="countdown-display-medium-1" class="countdown-display time-safe">--:--</span>
                 <input type="number" id="set-duration-medium-1" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('1')"> 
                 <span class="unit-text">(小時)</span>
                 <button class="add-btn" id="add-btn-medium-1" onclick="adjustDuration('medium', 5, '1')">+5分</button>
@@ -347,7 +385,7 @@
 
             <div class="input-group">
                 <label>升大火:</label>
-                <span id="countdown-display-high-1" class="countdown-display">--:--</span>
+                <span id="countdown-display-high-1" class="countdown-display time-safe">--:--</span>
                 <input type="number" id="set-duration-high-1" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('1')"> 
                 <span class="unit-text">(小時)</span>
                 <button class="add-btn" id="add-btn-high-1" onclick="adjustDuration('high', 5, '1')">+5分</button>
@@ -355,7 +393,7 @@
 
             <div class="input-group">
                 <label>轉保溫:</label>
-                <span id="countdown-display-keepwarm-1" class="countdown-display">--:--</span>
+                <span id="countdown-display-keepwarm-1" class="countdown-display time-safe">--:--</span>
                 <input type="number" id="set-duration-keepwarm-1" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('1')"> 
                 <span class="unit-text">(小時)</span>
                 <button class="add-btn" id="add-btn-keepwarm-1" onclick="adjustDuration('keepwarm', 5, '1')">+5分</button>
@@ -363,7 +401,7 @@
 
             <div class="input-group">
                 <label>預熱總時長:</label>
-                <span id="total-time-1" class="total-time-display time-alert-red">--:--</span>
+                <span id="total-time-1" class="total-time-display total-time-alert-red">--:--</span>
             </div>
         </div>
         
@@ -373,21 +411,21 @@
                 <button class="reset-btn" onclick="resetCar('2')">重置</button>
             </div>
 
-            <div class="input-group">
+            <div class="input-group car-number-group">
                 <label for="car-number-2">車號:</label>
                 <input type="number" id="car-number-2" min="00" max="99" maxlength="2" value="" onchange="saveCarNumber('2')">
+                <button onclick="setCurrentTime('2')" class="start-preheat-btn">開始預熱</button>
             </div>
 
             <div class="input-group start-time-group">
                 <label>開始時間:</label>
                 <span id="start-time-display-2" class="start-time-display">--:--</span>
-                <button onclick="setCurrentTime('2')">開始預熱</button>
                 <input type="datetime-local" id="start-time-2" onchange="updateStartTime('2')">
             </div>
             
             <div class="input-group">
                 <label>升中火:</label>
-                <span id="countdown-display-medium-2" class="countdown-display">--:--</span>
+                <span id="countdown-display-medium-2" class="countdown-display time-safe">--:--</span>
                 <input type="number" id="set-duration-medium-2" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('2')"> 
                 <span class="unit-text">(小時)</span>
                 <button class="add-btn" id="add-btn-medium-2" onclick="adjustDuration('medium', 5, '2')">+5分</button>
@@ -395,7 +433,7 @@
 
             <div class="input-group">
                 <label>升大火:</label>
-                <span id="countdown-display-high-2" class="countdown-display">--:--</span>
+                <span id="countdown-display-high-2" class="countdown-display time-safe">--:--</span>
                 <input type="number" id="set-duration-high-2" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('2')"> 
                 <span class="unit-text">(小時)</span>
                 <button class="add-btn" id="add-btn-high-2" onclick="adjustDuration('high', 5, '2')">+5分</button>
@@ -403,7 +441,7 @@
 
             <div class="input-group">
                 <label>轉保溫:</label>
-                <span id="countdown-display-keepwarm-2" class="countdown-display">--:--</span>
+                <span id="countdown-display-keepwarm-2" class="countdown-display time-safe">--:--</span>
                 <input type="number" id="set-duration-keepwarm-2" step="0.1" min="0" value="1.0" onchange="saveAndUpdateTimer('2')"> 
                 <span class="unit-text">(小時)</span>
                 <button class="add-btn" id="add-btn-keepwarm-2" onclick="adjustDuration('keepwarm', 5, '2')">+5分</button>
@@ -411,7 +449,7 @@
 
             <div class="input-group">
                 <label>預熱總時長:</label>
-                <span id="total-time-2" class="total-time-display time-alert-red">--:--</span>
+                <span id="total-time-2" class="total-time-display total-time-alert-red">--:--</span>
             </div>
         </div>
         
@@ -440,13 +478,16 @@
         const MS_PER_HOUR = 3600 * MS_PER_SECOND;
         const MINUTES_TO_HOURS = 1 / 60; 
         const THREE_HOURS_IN_MS = 3 * MS_PER_HOUR; 
+        const FIVE_MINUTES_IN_MS = 5 * MS_PER_MINUTE; // 5分鐘警示線
         
-        // 超時 5 分鐘的毫秒數 (用於抑制陳舊警報)
         const STALE_ALERT_THRESHOLD_MS = -5 * MS_PER_MINUTE; 
         
-        // --- 核心改動: 音量變數取代常數 ---
-        let currentVolume = 0.5; // 預設為 50% 音量 (0.0 到 1.0)
-        // ------------------------------------
+        // --- 音量變數 ---
+        const DEFAULT_VOLUME = 0.8; 
+        const MIN_VOLUME_ALERT_THRESHOLD = 0.05; // 5%
+        let currentVolume = DEFAULT_VOLUME; 
+        let volumeAlertSent = false; 
+        // ------------------
         
         let activeAlert = null; 
         let modalTimerInterval = null; 
@@ -501,28 +542,33 @@
             return idBase + '-' + carId;
         }
 
-        // --- 新增: 音量控制與儲存函式 ---
-        /** 儲存音量至 Cookie */
+        // --- 音量控制與儲存函式 ---
         function saveVolume(volume) {
-            setCookie('alertVolume', volume, 365); // volume is 0.0 to 1.0
+            setCookie('alertVolume', volume, 365); 
+        }
+        
+        /** **修正**: 移除瀏覽器通知，改為控制台警報 */
+        function sendLowVolumeAlert() {
+            if (volumeAlertSent) return; 
+            
+            confirm(`🚨 警報：音量過低 🚨 - 警報音量設定為 ${Math.round(currentVolume * 100)}%，可能聽不到提醒！請檢查。`);
+            volumeAlertSent = true; 
         }
 
-        /** 設定音量並儲存 */
         function setVolume(sliderValue) {
-            // 將滑塊值 (0-100) 轉換為音量值 (0.0-1.0)
             const newVolume = parseFloat(sliderValue) / 100; 
-            
-            // 更新全局音量變數
             currentVolume = newVolume;
-            
-            // 立即設定音訊元素的音量
             alarmAudio.volume = currentVolume; 
 
-            // 儲存到 cookie
+            if (currentVolume < MIN_VOLUME_ALERT_THRESHOLD) {
+                sendLowVolumeAlert(); // 使用修正後的警報
+            } else {
+                volumeAlertSent = false; 
+            }
+
             saveVolume(newVolume);
         }
 
-        /** 從 Cookie 載入音量並初始化滑塊 */
         function loadVolume() {
             const savedVolume = getCookie('alertVolume');
             const slider = document.getElementById('volume-slider');
@@ -530,17 +576,16 @@
             if (savedVolume !== null) {
                 currentVolume = parseFloat(savedVolume);
             } else {
-                // 如果沒有 Cookie，使用預設值 0.5
-                currentVolume = 0.5; 
+                currentVolume = DEFAULT_VOLUME; 
             }
             
-            // 初始化滑塊位置 (0.5 -> 50)
             slider.value = Math.round(currentVolume * 100); 
-            
-            // 初始化音訊元素的音量
             alarmAudio.volume = currentVolume; 
             
-            // 監聽滑塊的拖動事件 (input)
+            if (currentVolume < MIN_VOLUME_ALERT_THRESHOLD) {
+                sendLowVolumeAlert(); // 初始載入時檢查
+            }
+            
             slider.addEventListener('input', (event) => {
                 setVolume(event.target.value);
             });
@@ -551,7 +596,6 @@
         /** 播放警報音效 */
         function playAlertSound() {
             try {
-                // 這裡會使用 currentVolume 變數的值
                 alarmAudio.volume = currentVolume; 
                 alarmAudio.currentTime = 0;
                 alarmAudio.play().catch(e => console.error("無法自動播放音效，需要使用者互動:", e));
@@ -569,7 +613,6 @@
         /** 更新模態視窗中的超時時間顯示 */
         function updateModalCountdown(remainingMs) {
             if (remainingMs <= 0) {
-                // Calculate overdue minutes
                 const overdueMinutes = Math.ceil(Math.abs(remainingMs) / MS_PER_MINUTE);
                 modalCountdown.textContent = `已超時 ${overdueMinutes} 分`;
             } else {
@@ -623,7 +666,6 @@
             }
             
             if (activeAlert) {
-                // 在 carStates 中設置該階段的 alertSent 為 true (代表警報已處理過)
                 const state = carStates[activeAlert.carId];
                 const stage = activeAlert.stage;
                 const capitalizedStage = stage.charAt(0).toUpperCase() + stage.slice(1);
@@ -657,7 +699,6 @@
             
             clearInterval(state.timerInterval); 
             
-            // 重設提醒狀態 (允許下次歸零時彈窗)
             state.alertSentMedium = false;
             state.alertSentHigh = false;
             state.alertSentKeepWarm = false;
@@ -665,14 +706,16 @@
             const startTimeInput = document.getElementById(getId('start-time', carId)).value;
 
             if (!startTimeInput) {
-                // 清空顯示和閃爍
-                document.getElementById(getId('total-time', carId)).textContent = '--:--';
+                // 清空顯示和移除閃爍
+                updateTotalTimeDisplay(0, carId); // 傳入 0 確保清空和移除閃爍
                 document.getElementById(getId('countdown-display-medium', carId)).textContent = '--:--';
                 document.getElementById(getId('countdown-display-high', carId)).textContent = '--:--';
                 document.getElementById(getId('countdown-display-keepwarm', carId)).textContent = '--:--';
-                document.getElementById(getId('countdown-display-medium', carId)).classList.remove('flashing');
-                document.getElementById(getId('countdown-display-high', carId)).classList.remove('flashing');
-                document.getElementById(getId('countdown-display-keepwarm', carId)).classList.remove('flashing');
+                
+                // 清除倒數計時的 flashing 類
+                document.getElementById(getId('countdown-display-medium', carId)).classList.remove('flashing', 'time-safe', 'time-warning');
+                document.getElementById(getId('countdown-display-high', carId)).classList.remove('flashing', 'time-safe', 'time-warning');
+                document.getElementById(getId('countdown-display-keepwarm', carId)).classList.remove('flashing', 'time-safe', 'time-warning');
                 return;
             }
             
@@ -691,11 +734,8 @@
             
             const elapsedMs = now.getTime() - startTime.getTime();
             
-            if (elapsedMs < 0) {
-                updateTotalTimeDisplay(0, carId);
-            } else {
-                updateTotalTimeDisplay(elapsedMs, carId);
-            }
+            // 處理總時長顯示和閃爍
+            updateTotalTimeDisplay(Math.max(0, elapsedMs), carId);
             
             const durationMediumHours = parseFloat(document.getElementById(getId('set-duration-medium', carId)).value);
             const durationHighHours = parseFloat(document.getElementById(getId('set-duration-high', carId)).value);
@@ -724,7 +764,6 @@
             const capitalizedStage = stage.charAt(0).toUpperCase() + stage.slice(1);
             let alertFlag = state[`alertSent${capitalizedStage}`];
             
-            // 核心: 判斷顯示分鐘數是否為 0
             const totalMinutes = Math.floor(remainingMs / MS_PER_MINUTE);
 
             if (totalMinutes <= 0) { 
@@ -732,14 +771,12 @@
                 durationInput.disabled = true;
                 addButton.disabled = true;
                 
-                // 2. 顯示並【永遠閃爍】
+                // 2. 顯示固定紅色 '00:00'
                 element.textContent = '00:00';
-                element.classList.add('flashing'); 
+                element.classList.remove('flashing', 'time-safe'); 
+                element.classList.add('time-warning'); // 固定紅色顯示
                 
                 // 3. 警報彈窗: 
-                // 條件 1: 警報未被處理過 (!alertFlag)
-                // 條件 2: 剩餘時間尚未超時過久 (remainingMs > STALE_ALERT_THRESHOLD_MS)
-                // 條件 3: 沒有其他警報正在顯示 (!activeAlert)
                 if (!alertFlag && remainingMs > STALE_ALERT_THRESHOLD_MS) {
                    if (!activeAlert) { 
                        showAlertModal(carId, stage, endTimeMs); 
@@ -753,9 +790,19 @@
                 durationInput.disabled = false;
                 addButton.disabled = false;
 
-                // 2. 顯示倒數時間
+                // 2. 移除歸零閃爍
                 element.classList.remove('flashing');
                 
+                // 3. 5 分鐘顏色警示
+                if (remainingMs <= FIVE_MINUTES_IN_MS) {
+                    element.classList.remove('time-safe');
+                    element.classList.add('time-warning'); // 紅色
+                } else {
+                    element.classList.remove('time-warning');
+                    element.classList.add('time-safe'); // 黑色
+                }
+                
+                // 4. 顯示倒數時間
                 const hours = Math.floor(totalMinutes / 60);
                 const minutes = totalMinutes % 60;
 
@@ -817,26 +864,36 @@
             saveAndUpdateTimer(carId);
         }
         
+        /** **核心修正**: 更新總時長顯示，實現冒號閃爍 */
         function updateTotalTimeDisplay(elapsedMs, carId) {
             const totalElement = document.getElementById(getId('total-time', carId));
-
-            const totalMinutes = Math.floor(elapsedMs / MS_PER_MINUTE);
-            const hours = Math.floor(totalMinutes / 60);
-            const minutes = totalMinutes % 60;
-
-            const totalTimeDisplay = 
-                String(hours).padStart(2, '0') + ':' + 
-                String(minutes).padStart(2, '0');
             
-            totalElement.textContent = totalTimeDisplay;
-            
-            if (elapsedMs < THREE_HOURS_IN_MS) {
-                totalElement.classList.remove('time-alert-green');
-                totalElement.classList.add('time-alert-red');
-            } else {
-                totalElement.classList.remove('time-alert-red');
-                totalElement.classList.add('time-alert-green');
+            if (elapsedMs === 0) {
+                totalElement.innerHTML = '--:--';
+                totalElement.classList.remove('total-time-alert-green', 'total-time-alert-red');
+                return;
             }
+            
+            const totalMinutes = Math.floor(elapsedMs / MS_PER_MINUTE);
+            const hours = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+            const minutes = String(totalMinutes % 60).padStart(2, '0');
+            
+            // 決定顏色類
+            if (elapsedMs < THREE_HOURS_IN_MS) {
+                totalElement.classList.remove('total-time-alert-green');
+                totalElement.classList.add('total-time-alert-red');
+            } else {
+                totalElement.classList.remove('total-time-alert-red');
+                totalElement.classList.add('total-time-alert-green');
+            }
+
+            // **新結構**: 使用 span 讓冒號獨立出來，並控制其閃爍
+            const colonClass = (elapsedMs > 0) ? 'colon flashing-colon' : 'colon';
+            
+            const totalDisplayHTML = 
+                `${hours}<span class="${colonClass}">:</span>${minutes}`;
+            
+            totalElement.innerHTML = totalDisplayHTML;
         }
 
         function resetCar(carId) {
@@ -861,21 +918,20 @@
             document.getElementById(getId('set-duration-high', carId)).value = '1.0';
             document.getElementById(getId('set-duration-keepwarm', carId)).value = '1.0';
             
-            // 清空顯示和閃爍
-            document.getElementById(getId('total-time', carId)).textContent = '--:--';
-            document.getElementById(getId('total-time', carId)).classList.remove('time-alert-red', 'time-alert-green');
-            document.getElementById(getId('countdown-display-medium', carId)).textContent = '--:--';
-            document.getElementById(getId('countdown-display-high', carId)).textContent = '--:--';
-            document.getElementById(getId('countdown-display-keepwarm', carId)).textContent = '--:--';
-            document.getElementById(getId('countdown-display-medium', carId)).classList.remove('flashing');
-            document.getElementById(getId('countdown-display-high', carId)).classList.remove('flashing');
-            document.getElementById(getId('countdown-display-keepwarm', carId)).classList.remove('flashing');
+            // 清空顯示和移除閃爍
+            const totalElement = document.getElementById(getId('total-time', carId));
+            totalElement.textContent = '--:--'; // 重置為純文字
+            totalElement.classList.remove('total-time-alert-red', 'total-time-alert-green');
             
-            // 重新啟用所有輸入和按鈕
             const stages = ['medium', 'high', 'keepwarm'];
             stages.forEach(stage => {
+                const displayElement = document.getElementById(getId(`countdown-display-${stage}`, carId));
+                displayElement.textContent = '--:--';
+                displayElement.classList.remove('flashing', 'time-warning'); 
+                displayElement.classList.add('time-safe'); 
+
                 const durationInput = document.getElementById(getId(`set-duration-${stage}`, carId));
-                const addButton = document.getElementById(getId(`add-btn-${stage}`, carId));
+                const addButton = document.getElementById(getId(`add-duration-${stage}`, carId));
                 if(durationInput) durationInput.disabled = false;
                 if(addButton) addButton.disabled = false;
             });
@@ -887,7 +943,6 @@
             eraseCookie(`car_${carId}_durationKeepWarm`);
             eraseCookie(`car_${carId}_carNumber`);
 
-            // 如果有彈窗正在顯示，且屬於當前重置的車號，則關閉
             if (activeAlert && activeAlert.carId === carId) {
                 closeAlertModal(); 
             }
@@ -918,7 +973,7 @@
 
 
         document.addEventListener('DOMContentLoaded', () => {
-            loadVolume(); // **新增: 載入音量並初始化滑塊**
+            loadVolume(); 
             ['1', '2'].forEach(loadCarState);
             
             window.onclick = function(event) {
