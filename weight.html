@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>噸數計算器</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        /* Basic styling for paper look */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f3e8;
+            padding: 20px;
+            min-width: 640px;
+        }
+
+        /* Top level header - MODIFIED: Centered */
+        h1.main-title {
+            text-align: center; /* 標題置中 */
+            font-size: 2.5em;
+            margin-top: 0;
+            margin-bottom: 20px;
+            padding-bottom: 5px;
+            width: 100%;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Container for the main content (Inputs + Chart) */
+        .calculator-container {
+            display: flex;
+            flex-wrap: wrap;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 30px;
+            max-width: 1200px; /* 雙欄寬度 */
+            margin: 0 auto;
+            box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Left side: Inputs and calculations */
+        .input-section {
+            padding-right: 30px;
+            width: 550px; 
+            max-width: 550px;
+            min-width: 550px;
+        }
+
+        /* Right side: Chart */
+        .chart-section {
+            padding-left: 30px;
+            text-align: center;
+            width: 550px;
+            max-width: 550px;
+            min-width: 300px;
+        }
+
+        /* Media Query for chart wrapping */
+        @media (max-width: 1180px) {
+            .calculator-container {
+                flex-direction: column;
+                max-width: 600px; /* 單欄寬度 */
+                padding: 20px;
+            }
+
+            .input-section {
+                border-right: none;
+                padding-right: 0;
+                padding-bottom: 20px;
+                min-width: unset;
+                width: 100%;
+                max-width: 100%;
+            }
+
+            .chart-section {
+                padding-left: 0;
+                padding-top: 20px;
+                min-width: unset;
+                width: 100%;
+                max-width: 100%;
+            }
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .current-time {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #d9534f; /* 醒目紅色 */
+            margin-left: 20px;
+        }
+
+        /* 修正：統一 margin-right 樣式，用於所有預估輸出 (不靠右對齊) */
+        .margin-right {
+            margin-left: auto;
+            width: 240px; /* 固定寬度 240px */
+            display: flex;
+            align-items: center;
+        }
+        
+        /* 針對目標噸數行，將右側元素往右推到底 */
+        .target-row .margin-right {
+            margin-left: auto;
+        }
+
+        /* 針對預估剩餘時間行，將整個 row 的內容往右推 */
+        .remaining-time-row {
+            justify-content: flex-end;
+            margin-bottom: 20px;
+        }
+
+        .label {
+            width: 100px;
+            font-weight: bold;
+            font-size: 1.1em;
+            flex-shrink: 0;
+        }
+
+        input[type="number"] {
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            width: 80px;
+            text-align: center;
+            font-size: 16px;
+        }
+        
+        /* Specific input width for sync value */
+        #syncValue {
+            width: 50px !important; 
+        }
+
+        button {
+            padding: 8px 15px;
+            background-color: #5cb85c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        button.small-btn {
+            padding: 5px 10px;
+            margin-left: 5px;
+            width: 30px;
+            height: 30px;
+            font-size: 18px;
+        }
+        
+        button.action-btn {
+            background-color: #007bff;
+        }
+        
+        button.action-btn:hover {
+            background-color: #0056b3;
+        }
+        
+        /* 重置按鈕樣式 */
+        #resetBtn {
+            background-color: #f0ad4e; /* 橘色 */
+        }
+        #resetBtn:hover {
+            background-color: #ec971f;
+        }
+
+
+        /* Specific styling for the row with ST inputs */
+        .st-group {
+            display: flex;
+            align-items: center;
+        }
+
+        .st-group .st-input {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-right: 5px;
+        }
+
+        .st-group .st-input label {
+            font-size: 1.2em;
+            margin-bottom: 3px;
+        }
+
+        .st-group .st-input input {
+            width: 50px;
+            margin: auto;
+        }
+
+        /* Styling for the Sync button group */
+        .st-group .sync-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-right: 5px;
+        }
+        #syncBtn {
+            padding: 5px 5px;
+            margin: 0;
+            width: 50px;
+            margin-bottom: 3px; 
+        }
+        .st-group .sync-group label {
+            margin-bottom: 3px; 
+        }
+
+        /* T/D and Target rows label alignment */
+        .row .estimated-output {
+            margin-left: 20px;
+            font-weight: bold;
+        }
+        
+        /* Chart container */
+        .chart-container {
+            width: 100%;
+            height: 350px;
+        }
+
+        /* Hide the custom variable section visually, but keep the elements in DOM */
+        .custom-vars {
+            display: none; 
+        }
+
+    </style>
+</head>
+<body>
+
+<h1 class="main-title">噸數計算器</h1>
+
+<div class="calculator-container">
+
+    <div class="input-section">
+
+        <div class="row">
+            <span class="label">初始噸數</span>
+            <input type="number" id="initialTons" value="150.0" step="0.1" min="0" max="200">
+            <button id="startPourBtn" class="action-btn">啟鑄</button>
+            <button id="continuousPourBtn" class="action-btn">連鑄</button>
+            <span id="currentTimeDisplay" class="current-time">00:00:00</span>
+            <button id="resetBtn" class="action-btn">重置</button>
+        </div>
+
+        <div class="row">
+            <span class="label">澆鑄速度</span>
+            <div class="st-group">
+                <div class="st-input">
+                    <label>ST4</label><input type="number" id="st4Speed" value="1.20" step="0.01" min="0" max="1.5">
+                </div>
+                <div class="st-input">
+                    <label>ST3</label><input type="number" id="st3Speed" value="1.20" step="0.01" min="0" max="1.5">
+                </div>
+                <div class="st-input">
+                    <label>ST2</label><input type="number" id="st2Speed" value="1.20" step="0.01" min="0" max="1.5">
+                </div>
+                <div class="st-input">
+                    <label>ST1</label><input type="number" id="st1Speed" value="1.20" step="0.01" min="0" max="1.5">
+                </div>
+                
+                <div class="sync-group">
+                    <button id="syncBtn" class="action-btn">同步</button>
+                    <input type="number" id="syncValue" value="1.20" step="0.01">
+                </div>
+                <button id="updateBtn" class="action-btn" disabled>更新</button>
+            </div>
+        </div>
+
+        <div class="row">
+            <span class="label">T/D噸數</span>
+            <input type="number" id="tdTons" value="25.0" step="0.1" min="0" max="30"> 
+            <button id="subtractTdTonsBtn" class="small-btn action-btn">-</button>
+            <button id="addTdTonsBtn" class="small-btn action-btn">+</button>
+            <div class="margin-right"> 
+                <span class="estimated-output">預估當前噸數:</span>
+                <span id="currentTonsEstimate" class="estimated-output">000.0</span>
+                <span class="estimated-output">噸</span>
+            </div>
+        </div>
+
+        <div class="row target-row">
+            <span class="label">目標噸數</span>
+            <input type="number" id="targetTons" value="10.0" step="0.1">
+            <span>噸</span>
+            <div class="margin-right"> 
+                <span class="estimated-output">預估結束時間:</span>
+                <span id="finishTimeEstimate" class="estimated-output">--:--</span>
+                <span id="finishTimeUnitSpan" class="estimated-output">時</span>
+            </div>
+        </div>
+
+        <div class="row remaining-time-row">
+            <div style="flex-grow: 1;"></div> 
+            
+            <div class="margin-right" id="remainingTimeContainer"> 
+                <span class="estimated-output">預估剩餘時間:</span>
+                <span id="remainingTimeEstimate" class="estimated-output">--</span>
+                <span id="remainingTimeUnitSpan" class="estimated-output">分</span>
+            </div>
+        </div>
+        <div class="custom-vars">
+            <div class="row">
+                <span class="label">時間變數 (時)</span>
+                <input type="number" id="customTimeVar" value="0.0" step="0.1">
+            </div>
+            <div class="row">
+                <span class="label">計算噸數 (噸)</span>
+                <input type="number" id="customTonsVar" value="0.0" step="0.1">
+            </div>
+        </div>
+
+    </div>
+
+    <div class="chart-section">
+        <h2>噸數/時間 圖表</h2>
+        <div class="chart-container">
+            <canvas id="tonsTimeChart"></canvas>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // --- 常數定義 (Constants) ---
+    const TIME_CONVERSION_FACTOR = 0.438; // 0.438 單位為 噸/分鐘
+    const START_TIME_OFFSET_MS = 5 * 60 * 1000; // 5分鐘
+    const START_TONS_OFFSET = 2.0; // 2.0 噸
+    const CHART_DURATION_MS = 2 * 60 * 60 * 1000; // 圖表固定顯示 2 小時
+
+    // --- 全局狀態變數 (Global State Variables) ---
+    let activeStSpeedSum = 0; 
+    let tonsTimeChart; 
+    let isPouringActive = false; // 預估程序開關
+    let chartHistoryData = []; // 用於保存圖表的歷史軌跡
+
+    // --- 元素選擇 (Element Selectors) ---
+    const $ = id => document.getElementById(id);
+
+    // 輸入元素
+    const stInputs = [$('st1Speed'), $('st2Speed'), $('st3Speed'), $('st4Speed')];
+    
+    // 輸出元素 
+    const currentTonsEstimateSpan = $('currentTonsEstimate');
+    const finishTimeEstimateSpan = $('finishTimeEstimate');
+    const finishTimeUnitSpan = $('finishTimeUnitSpan'); 
+    const remainingTimeEstimateSpan = $('remainingTimeEstimate'); 
+    const remainingTimeUnitSpan = $('remainingTimeUnitSpan'); 
+    
+    const currentTimeDisplaySpan = $('currentTimeDisplay');
+    
+    // 按鈕元素
+    const resetBtn = $('resetBtn'); 
+    const updateBtn = $('updateBtn'); 
+
+
+    // 獲取所有 ST 速度的總和 (用於凍結)
+    function getTotalStSpeed() {
+        return stInputs.reduce((sum, input) => sum + parseFloat(input.value) || 0, 0);
+    }
+    
+    // 將毫秒時間戳轉換為以小時為單位的小數
+    function timeToHours(timestamp) {
+        return timestamp / (1000 * 60 * 60);
+    }
+    
+    // 將小時為單位的小數轉換為毫秒時間戳 (epoch time)
+    function hoursToMs(hours) {
+        return hours * 1000 * 60 * 60;
+    }
+
+    // 將毫秒時間戳格式化為 hh:mm (實際結束時間)
+    function formatTimeHHMM(ms) {
+        if (ms === Infinity) return '∞';
+        if (ms < 0) return '--:--'; 
+        
+        const date = new Date(ms);
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0'); 
+        
+        return `${hours}:${minutes}`;
+    }
+
+    // 實時更新目前時間
+    function updateCurrentTime() {
+        const now = new Date();
+        const hours = now.getHours().toString().padStart(2, '0');
+        const minutes = now.getMinutes().toString().padStart(2, '0');
+        const seconds = now.getSeconds().toString().padStart(2, '0');
+        currentTimeDisplaySpan.textContent = `${hours}:${minutes}:${seconds}`;
+    }
+
+    // --- 核心計算邏輯 ---
+
+    // 僅更新實時變動的值：當前噸數
+    function updateRealTimeEstimates() {
+        if (!isPouringActive) return;
+
+        const now = Date.now();
+        const customTime_hours = parseFloat($('customTimeVar').value) || 0;
+        const customTime_ms = hoursToMs(customTime_hours);
+        const customTons = parseFloat($('customTonsVar').value) || 0;
+        const tdTons = parseFloat($('tdTons').value) || 0;
+        
+        // 1. 預估當前噸數 (currentTonsEstimate)
+        const timeDiff_ms = now - customTime_ms; 
+        const timeDiff_minutes = timeDiff_ms / (1000 * 60); // 轉換為分鐘
+
+        let currentTons = customTons - tdTons - (timeDiff_minutes * activeStSpeedSum * TIME_CONVERSION_FACTOR);
+        currentTons = Math.max(0, currentTons);
+        
+        // 修正：檢查元素是否存在，避免 TypeError
+        if (currentTonsEstimateSpan) currentTonsEstimateSpan.textContent = currentTons.toFixed(1);
+    }
+
+    // 更新依賴於輸入或操作的值：預估結束時間、剩餘時間和圖表
+    function updateDependentEstimates(resetChart = true) {
+        if (!isPouringActive) return;
+
+        updateRealTimeEstimates(); 
+
+        const now = Date.now();
+        // 修正：由於 updateRealTimeEstimates() 已更新，直接從 span 獲取
+        const currentTons = parseFloat(currentTonsEstimateSpan.textContent) || 0; 
+        const targetTons = parseFloat($('targetTons').value) || 0;
+        const totalSpeed = activeStSpeedSum; 
+        
+        // --- 預估結束時間 & 剩餘時間 ---
+        const tonsRemaining = currentTons - targetTons;
+        let finishTimeMs = 0;
+        let timeToTarget_minutes = 0;
+
+        // 修正：檢查元素是否存在，避免 TypeError
+        if (totalSpeed > 0 && tonsRemaining > 0) {
+            timeToTarget_minutes = tonsRemaining / (totalSpeed * TIME_CONVERSION_FACTOR); 
+            const timeToTarget_ms = timeToTarget_minutes * 1000 * 60; 
+            
+            finishTimeMs = now + timeToTarget_ms;
+            
+            if (finishTimeEstimateSpan) finishTimeEstimateSpan.textContent = formatTimeHHMM(finishTimeMs);
+            if (finishTimeUnitSpan) finishTimeUnitSpan.textContent = '時';
+            if (remainingTimeEstimateSpan) remainingTimeEstimateSpan.textContent = Math.ceil(timeToTarget_minutes); // 向上取整顯示分鐘
+            if (remainingTimeUnitSpan) remainingTimeUnitSpan.textContent = '分';
+        } else if (totalSpeed === 0) {
+            if (finishTimeEstimateSpan) finishTimeEstimateSpan.textContent = '∞';
+            if (finishTimeUnitSpan) finishTimeUnitSpan.textContent = '';
+            if (remainingTimeEstimateSpan) remainingTimeEstimateSpan.textContent = '∞';
+            if (remainingTimeUnitSpan) remainingTimeUnitSpan.textContent = '';
+        } else {
+            if (finishTimeEstimateSpan) finishTimeEstimateSpan.textContent = formatTimeHHMM(now);
+            if (finishTimeUnitSpan) finishTimeUnitSpan.textContent = '時';
+            if (remainingTimeEstimateSpan) remainingTimeEstimateSpan.textContent = '0'; // 已達成目標
+            if (remainingTimeUnitSpan) remainingTimeUnitSpan.textContent = '分';
+        }
+        
+        // --- 圖表更新所需參數 ---
+        const customTime_hours = parseFloat($('customTimeVar').value) || 0;
+        const customTime_ms = hoursToMs(customTime_hours);
+
+        updateChart(customTime_ms, 0, currentTons, finishTimeMs, targetTons, resetChart);
+    }
+
+    // --- 圖表邏輯 (Chart Logic) ---
+
+    function initializeChart() {
+        const ctx = $('tonsTimeChart').getContext('2d');
+        Chart.defaults.color = '#333';
+        tonsTimeChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: '歷史軌跡',
+                    data: [],
+                    borderColor: 'rgb(75, 192, 192)', // 歷史線：實線 (藍綠色)
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0, 
+                    fill: false,
+                    pointRadius: 3,
+                    borderDash: []
+                },
+                {
+                    label: '預估趨勢',
+                    data: [],
+                    borderColor: 'rgb(150, 150, 150)', // 預估線：虛線 (灰色)
+                    tension: 0, 
+                    fill: false,
+                    pointRadius: 0, 
+                    borderDash: [5, 5] // 虛線設定
+                },
+                {
+                    label: '目標噸數',
+                    data: [],
+                    borderColor: 'rgb(255, 99, 132)',
+                    borderDash: [5, 5],
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'minute',
+                            tooltipFormat: 'HH:mm',
+                            displayFormats: {
+                                minute: 'HH:mm',
+                                hour: 'HH:mm'
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: '時間 (HH:MM)'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: '噸數 (Tons)'
+                        },
+                        beginAtZero: true
+                    }
+                },
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+    }
+    
+    // 根據 resetChart 策略更新圖表
+    function updateChart(startTimeMs, startTons, currentTons, finishTimeMs, targetTons, resetChart) {
+        if (!tonsTimeChart) return;
+
+        const nowMs = Date.now();
+        const historyData = tonsTimeChart.data.datasets[0].data; // 歷史軌跡
+        const predictionData = tonsTimeChart.data.datasets[1].data; // 預估趨勢
+        const targetData = tonsTimeChart.data.datasets[2].data; // 目標噸數
+        const totalSpeed = activeStSpeedSum;
+        
+        // --- 處理歷史軌跡 ---
+        if (resetChart) {
+            // 啟鑄/連鑄/重置：清除歷史數據，僅保留當前點作為新歷史的起點
+            chartHistoryData = [];
+            historyData.length = 0; 
+            predictionData.length = 0; 
+
+            if (isPouringActive) {
+                 const startingPoint = { x: nowMs, y: currentTons };
+                 chartHistoryData.push(startingPoint);
+                 historyData.push(startingPoint); 
+            }
+        } else if (isPouringActive) {
+            // 更新/T/D/目標噸數變動：將當前點加入歷史軌跡
+            
+            // 1. 將當前點加入歷史軌跡
+            if (chartHistoryData.length === 0 || chartHistoryData[chartHistoryData.length - 1].x < nowMs - 1000) {
+                 chartHistoryData.push({ x: nowMs, y: currentTons });
+            }
+            
+            // 2. 歷史線從累積的歷史數據繪製
+            historyData.length = 0;
+            // 過濾掉時間早於起始時間點的歷史數據，防止圖表在連鑄/更新後回溯
+            const activeHistory = chartHistoryData.filter(point => point.x >= startTimeMs);
+            historyData.push(...activeHistory);
+
+            // 3. 確保歷史線的最後一個點是當前時間 (用於連接預估線)
+            const currentPoint = { x: nowMs, y: currentTons };
+            if (activeHistory.length === 0 || activeHistory[activeHistory.length - 1].x !== nowMs) {
+                historyData.push(currentPoint);
+            }
+        } else {
+             historyData.length = 0; // 如果非活動，清除所有線
+             predictionData.length = 0;
+        }
+        
+        // 確保歷史數據點按時間排序
+        historyData.sort((a, b) => a.x - b.x);
+
+
+        // --- 繪製預估線 ---
+        predictionData.length = 0; // 總是清除舊的預估線
+        if (isPouringActive && totalSpeed > 0 && currentTons > targetTons && finishTimeMs > nowMs) {
+            
+            // 預估線的起點是當前點 (連接歷史線的終點)
+            predictionData.push({ x: nowMs, y: currentTons });
+            
+            // 結束點 (Finish Time, targetTons)
+            predictionData.push({ x: finishTimeMs, y: targetTons });
+        }
+        
+        // --- Chart Time Axis Control (Fixed 2 hours) ---
+        let minTimeMs;
+        
+        if (isPouringActive && historyData.length > 0) {
+            // Start from the absolute earliest point in the history data
+            minTimeMs = historyData[0].x;
+        } else {
+            // If inactive or data is empty, start the axis 2 hours ago from now
+            minTimeMs = nowMs - CHART_DURATION_MS; 
+        }
+        
+        const maxTimeMs = minTimeMs + CHART_DURATION_MS; // 2 hours duration
+
+        tonsTimeChart.options.scales.x.min = minTimeMs;
+        tonsTimeChart.options.scales.x.max = maxTimeMs;
+
+        // --- 目標線數據 (恆定 targetTons) ---
+        targetData.length = 0;
+        targetData.push({ x: minTimeMs, y: targetTons });
+        targetData.push({ x: maxTimeMs, y: targetTons });
+
+        // 重新繪製
+        tonsTimeChart.update();
+    }
+    
+    // --- 重置功能 ---
+    function handleReset() {
+        isPouringActive = false;
+        updateBtn.disabled = true; // 停用更新按鈕
+        activeStSpeedSum = getTotalStSpeed(); 
+        chartHistoryData = [];
+
+        // 重置 custom 變數到預設值
+        const now = Date.now();
+        const initialTonsVal = parseFloat($('initialTons').value) || 0;
+        const tdTonsVal = parseFloat($('tdTons').value) || 0;
+        
+        $('customTimeVar').value = timeToHours(now).toFixed(3);
+        $('customTonsVar').value = (initialTonsVal + tdTonsVal).toFixed(1);
+
+        // 清除預估顯示 (修正：確保所有元素都能正確設置 textContent)
+        // 此處包含錯誤報告中的行號 (如 weight.html:601)，已用條件式檢查修正
+        if (currentTonsEstimateSpan) currentTonsEstimateSpan.textContent = '000.0';
+        if (finishTimeEstimateSpan) finishTimeEstimateSpan.textContent = '--:--';
+        if (finishTimeUnitSpan) finishTimeUnitSpan.textContent = '時'; 
+        if (remainingTimeEstimateSpan) remainingTimeEstimateSpan.textContent = '--'; 
+        if (remainingTimeUnitSpan) remainingTimeUnitSpan.textContent = '分'; 
+        
+        // 重置圖表 (true 重置歷史)
+        updateChart(0, 0, 0, 0, parseFloat($('targetTons').value) || 0, true); 
+    }
+
+
+    // --- 事件處理器與初始化 ---
+
+    // T/D 噸數按鈕: +0.5 / -0.5
+    const handleTdTonsChange = (delta) => {
+        let current = parseFloat($('tdTons').value) || 0;
+        let max = parseFloat($('tdTons').max) || Infinity;
+        let min = parseFloat($('tdTons').min) || 0;
+        let newValue = Math.min(max, Math.max(min, current + delta));
+        $('tdTons').value = newValue.toFixed(1);
+        updateDependentEstimates(false); 
+    };
+
+    $('addTdTonsBtn').addEventListener('click', () => handleTdTonsChange(0.5));
+    $('subtractTdTonsBtn').addEventListener('click', () => handleTdTonsChange(-0.5));
+    
+    // 目標噸數變動
+    $('targetTons').addEventListener('input', () => {
+        if (!isPouringActive) return;
+        updateDependentEstimates(false);
+    });
+    
+    // 連接重置按鈕事件
+    resetBtn.addEventListener('click', handleReset);
+
+
+    // 同步按鈕 (syncBtn)
+    $('syncBtn').addEventListener('click', () => {
+        const syncValue = parseFloat($('syncValue').value);
+        if (syncValue === 0) return; 
+        
+        stInputs.forEach(input => {
+            if (parseFloat(input.value) !== 0) {
+                let newValue = Math.min(parseFloat(input.max) || Infinity, syncValue);
+                input.value = newValue.toFixed(2);
+            }
+        });
+    });
+
+    // 啟鑄/連鑄/更新按鈕 - 凍結速度並更新 custom 變數
+    const setupPour = (isStartPour, isContinuousPour, isUpdate) => {
+        isPouringActive = true; 
+        updateBtn.disabled = false; // 啟用更新按鈕
+        activeStSpeedSum = getTotalStSpeed(); 
+        const now = Date.now();
+        
+        const newTimeMs = isStartPour ? now + START_TIME_OFFSET_MS : now;
+        $('customTimeVar').value = timeToHours(newTimeMs).toFixed(3);
+
+        let newTons = 0;
+        if (isStartPour || isContinuousPour) {
+            const initialTons = parseFloat($('initialTons').value) || 0;
+            const tdTons = parseFloat($('tdTons').value) || 0;
+            
+            if (isStartPour) {
+                const activeStCount = stInputs.filter(input => parseFloat(input.value) !== 0).length;
+                newTons = initialTons - (activeStCount * START_TONS_OFFSET);
+            } else { // isContinuousPour
+                newTons = initialTons + tdTons;
+            }
+        } else if (isUpdate) { // isUpdate
+            updateRealTimeEstimates(); 
+            // 修正：從更新後的 span 獲取當前噸數
+            const currentTonsEstimate = parseFloat(currentTonsEstimateSpan.textContent) || 0; 
+            const tdTons = parseFloat($('tdTons').value) || 0;
+            newTons = currentTonsEstimate + tdTons;
+        }
+        
+        $('customTonsVar').value = (newTons || 0).toFixed(1);
+        
+        // 啟鑄/連鑄 需要重置圖表歷史 (resetChart = true)
+        updateDependentEstimates(isStartPour || isContinuousPour);
+    };
+
+    $('startPourBtn').addEventListener('click', () => setupPour(true, false, false));
+    $('continuousPourBtn').addEventListener('click', () => setupPour(false, true, false));
+    // 此處包含錯誤報告中的行號 (如 weight.html:683)，已修正邏輯
+    $('updateBtn').addEventListener('click', () => setupPour(false, false, true)); 
+
+    // --- 頁面初始化 (DOM Ready) ---
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // 1. 初始化圖表
+        initializeChart();
+        
+        // 2. 初始速度凍結
+        activeStSpeedSum = getTotalStSpeed(); 
+
+        // 3. 執行重置邏輯，將所有狀態初始化到非活動狀態的預設值
+        handleReset(); 
+
+        // 4. 定時器：僅更新實時數據 (currentTons) 和目前時間
+        setInterval(() => {
+            updateCurrentTime();
+            updateRealTimeEstimates(); 
+        }, 1000); 
+
+    });
+
+</script>
+
+</body>
+</html>
