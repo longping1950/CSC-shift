@@ -31,6 +31,7 @@
             flex-grow: 1; 
             width: 100%;
             padding: 10px;
+            min-width:450px;
         }
 
         .accordion-item {
@@ -1362,7 +1363,7 @@
         // --- 常數定義 (Constants) ---
         const TIME_CONVERSION_FACTOR = 0.438; // 0.438 單位為 噸/分鐘
         const START_TIME_OFFSET_MS = 5 * 60 * 1000; // 5分鐘
-        const START_TONS_OFFSET = 2.0; // 2.0 噸
+        const START_TONS_OFFSET = 2.75; // 2.0 噸
         const CHART_DURATION_MS = 2 * 60 * 60 * 1000; // 圖表固定顯示 2 小時
 
         // --- 全局狀態變數 (Global State Variables) ---
@@ -1720,7 +1721,7 @@
             activeStSpeedSum = getTotalStSpeed(); 
             const now = Date.now();
             
-            const newTimeMs = isStartPour ? now + START_TIME_OFFSET_MS : now;
+            const newTimeMs = now;
             $('customTimeVar').value = timeToHours(newTimeMs).toFixed(3);
 
             let newTons = 0;
