@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <title>中鋼班表查詢</title>
+    <link rel="shortcut icon" href="web/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="web/favicon.ico" type="image/x-icon">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background-color: #7394b5;
+            font-family: Arial, sans-serif;
+            font-size: 22px;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        span {
+            white-space: pre;
+        }
+
+        footer {
+            text-align: center;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .content-wrapper {
+            flex-grow: 1;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .search-bar {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .linkbutton {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .linkbutton:hover {
+            background-color: #bdc3c7;
+            transform: scale(1.05);
+        }
+
+        .button-right {
+            margin-left: auto;
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        input[type="month"], input[type="date"], select {
+            font-size: 16px;
+            padding: 8px 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        
+        #part-checkboxes label {
+            font-size: 16px;
+            margin-right: 15px;
+        }
+
+        #calendar-grid {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #f8f8f8;
+        }
+
+        .day-header {
+            background-color: #3498db;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            font-size: 18px;
+            border-bottom: 1px solid #2c3e50;
+        }
+
+        .date-cell {
+            border: 1px solid #eee;
+            min-height: 120px;
+            padding: 5px;
+            background-color: white;
+            position: relative;
+            cursor: pointer;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .date-cell:hover {
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
+        
+        .empty-cell {
+            background-color: #f0f0f0;
+            cursor: default; /* 新增：改變游標樣式 */
+            box-shadow: none; /* 新增：移除陰影 */
+        }
+
+        .empty-cell:hover {
+            box-shadow: none; /* 移除 hover 陰影 */
+        }
+        
+        .date-number {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            font-size: 16px;
+            z-index: 2;
+        }
+
+        .today-circle {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 25px;
+            height: 25px;
+            background-color: rgba(255, 0, 0, 0.4);
+            border-radius: 50%;
+            z-index: 1;
+        }
+
+        .shift-bar {
+            position: absolute;
+            height: 25px;
+            line-height: 25px;
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: left;
+            padding: 0 5px;
+            border-radius: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            z-index: 1;
+            box-sizing: border-box;
+            display: none;
+            left: 0;
+            top: 30px;
+            pointer-events: none;
+        }
+        
+        .shift-bar.visible {
+            display: block;
+        }
+        
+        /* 使用班別顏色 */
+        .shift-bar.早 { background-color: #9dd7db; }
+        .shift-bar.中 { background-color: #ceb98d; }
+        .shift-bar.夜 { background-color: #c6a1cf; }
+
+        .shift-bar-A { top: 30px; }
+        .shift-bar-B { top: 55px; }
+        .shift-bar-C { top: 80px; }
+        .shift-bar-D { top: 105px; }
+        
+        .github-logo {
+            height: 24px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .search-bar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .linkbutton {
+                width: 100%;
+                margin-left: 0;
+            }
+        }
+        
+        /* 彈窗樣式 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            padding-top: 60px;
+        }
+        
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 300px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            position: relative;
+            text-align: center;
+        }
+        
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            position: absolute;
+            top: 10px;
+            right: 20px;
+        }
+        
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        
+        .modal-info p {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        
+        .modal-info .shift-A, .modal-info .shift-B, .modal-info .shift-C, .modal-info .shift-D {
+            font-weight: bold;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="content-wrapper">
+        <div class="search-bar">
+            <span id="label-date">日期:</span>
+            <input type="month" id="month" value="" />
+            <span id="label-showpart">顯示股別:</span>
+            <div id="part-checkboxes">
+                <label><input type="checkbox" name="part" value="0"> A股</label>
+                <label><input type="checkbox" name="part" value="1"> B股</label>
+                <label><input type="checkbox" name="part" value="2"> C股</label>
+                <label><input type="checkbox" name="part" value="3"> D股</label>
+            </div>
+            <button id="link1" class="linkbutton button-right" onclick="redirectToURL()">請假查詢</button>
+        </div>
+        
+        <div id="calendar-grid"></div>
+
+        <div class="button-container">
+            <button id="up" class="linkbutton">上個月</button>
+            <button id="down" class="linkbutton button-right">下個月</button>
+        </div>
+    </div>
+
+    <div id="info-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2></h2>
+            <div class="modal-info"></div>
+        </div>
+    </div>
+    
+    <footer class="bottom">
+        <p>copyright &copy; 2025 longping.
+        <a href="https://github.com/longping1950/CSC-shift">
+            <img src="web/github-mark.png" alt="點擊前往專案" class="github-logo">
+        </a>
+        </p>
+    </footer>
+    
+    <script>
+        // --- 語言包：使用兩個字的班別名稱作為 Key，以匹配您的變數設定 ---
+        const LANG = {
+            'zh-TW': {
+                labels: { date: "日期:", showPart: "顯示股別:" },
+                weekdays: ["日", "一", "二", "三", "四", "五", "六"],
+                parts: ["A股", "B股", "C股", "D股"],
+                shifts: { 
+                    "中": "中班", 
+                    "休": "休假", 
+                    "早": "早班", 
+                    "夜": "夜班" 
+                },
+                buttons: { up: "上個月", down: "下個月", info: "請假查詢" },
+                modalTitle: (y, m, d, w) => `${y} 年 ${m} 月 ${d} 日 (星期${w})`,
+                modalParts: ["A股", "B股", "C股", "D股"],
+            },
+            'en-US': {
+                labels: { date: "Date:", showPart: "Show Part:" },
+                weekdays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+                parts: ["Part A", "Part B", "Part C", "Part D"],
+                shifts: { 
+                    "中": "A", 
+                    "休": "OFF", 
+                    "早": "M", 
+                    "夜": "N" 
+                },
+                buttons: { up: "Previous Month", down: "Next Month", info: "Leave Inquiry" },
+                modalTitle: (y, m, d, w) => `${w}, ${m}/${d}/${y}`,
+                modalParts: ["Part A", "Part B", "Part C", "Part D"],
+            }
+        };
+
+        // --- 語言選擇邏輯：網址 > 瀏覽器 > 預設 ---
+        const urlParams = new URLSearchParams(window.location.search);
+        let determinedLangCode = 'zh-TW';
+
+        if (urlParams.has('lang')) {
+            const paramLang = urlParams.get('lang');
+            if (LANG[paramLang]) {
+                determinedLangCode = paramLang;
+            }
+        } else if (navigator.language) {
+            let browserLang = navigator.language;
+            if (LANG[browserLang]) {
+                determinedLangCode = browserLang;
+            } else {
+                const baseLang = browserLang.split('-')[0];
+                if (baseLang === 'zh') {
+                    determinedLangCode = 'zh-TW'; 
+                } else if (baseLang === 'en') {
+                    determinedLangCode = 'en-US'; 
+                }
+            }
+        }
+
+        const currentLang = LANG[determinedLangCode];
+        // ------------------------------------------
+
+        // --- 靜態文字初始化 ---
+        document.getElementById('label-date').textContent = currentLang.labels.date;
+        document.getElementById('label-showpart').textContent = currentLang.labels.showPart;
+        document.getElementById('link1').textContent = currentLang.buttons.info;
+        document.getElementById('up').textContent = currentLang.buttons.up;
+        document.getElementById('down').textContent = currentLang.buttons.down;
+        
+        document.getElementsByName('part').values('0').textContent = ` ${currentLang.parts[0]}`;
+        document.getElementsByName('part').values('1').textContent = ` ${currentLang.parts[1]}`;
+        document.getElementsByName('part').values('2').textContent = ` ${currentLang.parts[2]}`;
+        document.getElementsByName('part').values('3').textContent = ` ${currentLang.parts[3]}`;
+        // ------------------------------------------
+
+        const today = new Date();
+        FormatMonth(today);
+
+        function FormatMonth(month) {
+            const yyyy = month.getFullYear();
+            const mm = String(month.getMonth() + 1).padStart(2, '0');
+            const FormattedMonth = yyyy + '-' + mm;
+            document.getElementById('month').value = FormattedMonth;
+            return FormattedMonth;
+        }
+
+        const monthInput = document.getElementById('month');
+        const calendarGrid = document.getElementById('calendar-grid');
+        const partCheckboxes = document.querySelectorAll('#part-checkboxes input[type="checkbox"]');
+        
+        const shiftList = [
+            ["中", 1], ["中", 2], ["中", 3], ["中", 4], ["中", 5],
+            ["休", 0],
+            ["早", 1], ["早", 2], ["早", 3], ["早", 4], ["早", 5],
+            ["休", 0], ["休", 0],
+            ["夜", 1], ["夜", 2], ["夜", 3], ["夜", 4], ["夜", 5],
+            ["休", 0], ["休", 0]
+        ];
+        
+        const partShiftStarts = {
+            '0': 18, // A股
+            '1': 3,  // B股
+            '2': 8,  // C股
+            '3': 13  // D股
+        };
+        
+        function getOrdinalDate(date) {
+            const timestamp = Date.parse(date);
+            return Math.floor(timestamp / 86400000);
+        }
+
+        function getShift(date, shiftIndex) {
+            const ordinalDate = getOrdinalDate(date);
+            const nList = (ordinalDate + shiftIndex + 1 + 20) % 20;
+            return shiftList[nList];
+        }
+
+        function getDailyShiftData(date) {
+            const dailyData = {};
+            
+            Object.keys(partShiftStarts).forEach(partKey => {
+                const [shiftName, shiftDayNumber] = getShift(date, partShiftStarts[partKey]);
+                
+                dailyData[partKey] = {
+                    shiftName: shiftName, 
+                    shiftDayNumber: shiftDayNumber,
+                };
+            });
+            
+            return dailyData;
+        }
+
+        function redirectToURL() {
+            window.location.href = "https://longping1950.github.io/CSC-shift/schedule.html";
+        }
+        
+        // 打開彈窗的函式
+        function openModal(date) {
+            const modal = document.getElementById('info-modal');
+            const modalTitle = modal.querySelector('h2');
+            const modalInfo = modal.querySelector('.modal-info');
+
+            const dayData = getDailyShiftData(date);
+
+            const weekdays = currentLang.weekdays; 
+            const dayName = weekdays[date.getDay()];
+
+            let infoHtml = '';
+            
+            ['0', '1', '2', '3'].forEach((partKey, index) => {
+                const shiftName = dayData[partKey].shiftName; // *** NEW: 從資料中提取 shiftName ***
+                const translatedShift = currentLang.shifts[shiftName];
+                infoHtml += `<p><strong>${currentLang.modalParts[index]}:</strong> ${translatedShift}</p>`;
+            });
+            
+            modalInfo.innerHTML = infoHtml;
+            modal.style.display = 'block';
+        }
+        
+        // 關閉彈窗的函式
+        function closeModal() {
+            const modal = document.getElementById('info-modal');
+            modal.style.display = 'none';
+        }
+
+        function renderCalendar() {
+            calendarGrid.innerHTML = '';
+            
+            currentLang.weekdays.forEach(day => {
+                const header = document.createElement('div');
+                header.classList.add('day-header');
+                header.textContent = day;
+                calendarGrid.appendChild(header);
+            });
+
+            const startDate = new Date(monthInput.value + '-01');
+            const daysInMonth = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0).getDate();
+            
+            const firstDayOfWeek = startDate.getDay();
+            for (let i = 0; i < firstDayOfWeek; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.classList.add('date-cell', 'empty-cell');
+                calendarGrid.appendChild(emptyCell);
+            }
+
+            const dateCells = [];
+            for (let d = 1; d <= daysInMonth; d++) {
+                const cell = document.createElement('div');
+                cell.classList.add('date-cell');
+                const dateText = document.createElement('div');
+                dateText.classList.add('date-number');
+                dateText.textContent = d;
+                cell.appendChild(dateText);
+
+                const currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), d);
+                const todayDate = new Date();
+                
+                if (currentDate.getFullYear() === todayDate.getFullYear() && 
+                    currentDate.getMonth() === todayDate.getMonth() && 
+                    currentDate.getDate() === todayDate.getDate()) {
+                    const todayCircle = document.createElement('div');
+                    todayCircle.classList.add('today-circle');
+                    cell.appendChild(todayCircle);
+                }
+                
+                cell.addEventListener('click', () => {
+                    openModal(currentDate);
+                });
+                
+                dateCells.push(cell);
+                calendarGrid.appendChild(cell);
+            }
+            
+            const lastDayOfWeek = (firstDayOfWeek + daysInMonth) % 7;
+            if (lastDayOfWeek !== 0) {
+                const remainingCells = 7 - lastDayOfWeek;
+                for (let i = 0; i < remainingCells; i++) {
+                    const emptyCell = document.createElement('div');
+                    emptyCell.classList.add('date-cell', 'empty-cell');
+                    calendarGrid.appendChild(emptyCell);
+                }
+            }
+
+            const selectedParts = Array.from(partCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+
+            for (let partValue = 0; partValue < 4; partValue++) {
+                const shiftIndex = partShiftStarts[partValue.toString()];
+                let d = 1;
+                while (d <= daysInMonth) {
+
+                    const date = new Date(startDate.getFullYear(), startDate.getMonth(), d);
+                    const [shiftName, shiftDayNumber] = getShift(date, shiftIndex); 
+                    
+                    const isStartOfShift = shiftDayNumber === 1;
+                    const isStartOfMonth = d === 1;
+                    const isStartOfWeek = date.getDay() === 0;
+
+                    if (shiftName !== "休" && (isStartOfShift || isStartOfMonth || isStartOfWeek)) {
+                        let daySpan = 5;
+                        
+                        if (shiftDayNumber > 1) {
+                            daySpan = 5 - (shiftDayNumber - 1);
+                        }
+                        
+                        const daysUntilEndOfWeek = 7 - date.getDay();
+                        daySpan = Math.min(daySpan, daysUntilEndOfWeek);
+
+                        const daysUntilEndOfMonth = daysInMonth - d + 1;
+                        daySpan = Math.min(daySpan, daysUntilEndOfMonth);
+
+                        const shiftBar = document.createElement('div');
+                        shiftBar.classList.add('shift-bar', shiftName);
+                        shiftBar.textContent = currentLang.shifts[shiftName];
+                        
+                        shiftBar.style.width = `calc(${daySpan} * 100% + ${daySpan - 1}px * 2)`;
+                        
+                        switch(partValue) {
+                            case 0: shiftBar.classList.add('shift-bar-A'); break;
+                            case 1: shiftBar.classList.add('shift-bar-B'); break;
+                            case 2: shiftBar.classList.add('shift-bar-C'); break;
+                            case 3: shiftBar.classList.add('shift-bar-D'); break;
+                        }
+
+                        if (selectedParts.includes(partValue.toString())) {
+                            shiftBar.classList.add('visible');
+                        }
+
+                        dateCells[d - 1].appendChild(shiftBar);
+
+                        d += daySpan;
+                    } else {
+                        d++;
+                    }
+                }
+            }
+        }
+
+        // 關閉彈窗的事件監聽器
+        const modal = document.getElementById('info-modal');
+        const closeButton = modal.querySelector('.close-button');
+        closeButton.addEventListener('click', closeModal);
+        window.addEventListener('click', (event) => {
+            if (event.target == modal) {
+                closeModal();
+            }
+        });
+
+        const hightlightMemory = localStorage.getItem('hightlightMemory');
+        if (hightlightMemory) {
+            const parts = hightlightMemory.split(',');
+            partCheckboxes.forEach(cb => {
+                if (parts.includes(cb.value)) {
+                    cb.checked = true;
+                }
+            });
+        } else {
+            partCheckboxes[0].checked = true;
+        }
+        
+        renderCalendar();
+
+        monthInput.addEventListener('change', () => {
+            if (monthInput.value == '') {
+                const today = new Date();
+                FormatMonth(today);
+            }
+            renderCalendar();
+        });
+
+        partCheckboxes.forEach(cb => {
+            cb.addEventListener('change', () => {
+                const checkedValues = Array.from(partCheckboxes).filter(c => c.checked).map(c => c.value);
+                localStorage.setItem('hightlightMemory', checkedValues.join(','));
+                renderCalendar();
+            });
+        });
+
+        const upbutton = document.getElementById('up');
+        upbutton.addEventListener('click', () => {
+            let newDate = new Date(monthInput.value);
+            newDate = new Date(newDate.getFullYear(), newDate.getMonth() - 1, 1);
+            newDate = FormatMonth(newDate);
+            monthInput.value = newDate;
+            renderCalendar();
+        });
+
+        const downbutton = document.getElementById('down');
+        downbutton.addEventListener('click', () => {
+            let newDate = new Date(monthInput.value);
+            newDate = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 1);
+            newDate = FormatMonth(newDate);
+            monthInput.value = newDate;
+            renderCalendar();
+        });
+    </script>
+</body>
+</html>
