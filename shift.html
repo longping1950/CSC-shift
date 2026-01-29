@@ -141,7 +141,7 @@
             } else if (shiftType === '早') {
                 if (dayOfWeek >= 1 && dayOfWeek <= 6) isWorkDay = true;
             } else if (shiftType === '夜') {
-                // Modified: EFG Night Shift is now Mon-Fri (1-5)
+                // EFG Night Shift: Mon-Fri (1-5)
                 if (dayOfWeek >= 1 && dayOfWeek <= 5) isWorkDay = true;
             }
 
@@ -208,7 +208,11 @@
         };
 
         const App = () => {
-            const [currentDate, setCurrentDate] = useState(new Date());
+            // Modified: Initialize with the 1st of the current month to avoid date rollover issues
+            const [currentDate, setCurrentDate] = useState(() => {
+                const now = new Date();
+                return new Date(now.getFullYear(), now.getMonth(), 1);
+            });
             const [selectedGroups, setSelectedGroups] = useState(['A']);
             const [modalData, setModalData] = useState({ isOpen: false, date: null });
             const [isDarkMode, setIsDarkMode] = useState(false);
@@ -259,9 +263,8 @@
             useLayoutEffect(() => {
                 if (contentRef.current) {
                     if (controlScale < 1) {
-                        // When scaled, measure the INNER unscaled content height.
-                        // Because contentRef is now inside the scaling div, but we wrap the content in a clean div
-                        // offsetHeight here will reflect the correct layout height of the 480px content.
+                        // When scaled, contentRef is fixed at 480px width.
+                        // We need to measure its layout height (offsetHeight) and multiply by scale.
                         const unscaledHeight = contentRef.current.offsetHeight;
                         setContentHeight(`${unscaledHeight * controlScale}px`);
                     } else {
@@ -311,10 +314,17 @@
 
             const addMonth = (offset) => {
                 setCurrentDate(prev => {
+                    // Since date is always initialized/kept at day 1, standard month math is safe.
                     const newDate = new Date(prev);
                     newDate.setMonth(newDate.getMonth() + offset);
                     return newDate;
                 });
+            };
+
+            // Modified: Back to Today resets to the 1st of the CURRENT month
+            const resetToToday = () => {
+                const now = new Date();
+                setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
             };
 
             const calendarData = useMemo(() => {
@@ -425,7 +435,7 @@
                                                         {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
                                                     </button>
                                                     <a href="https://longping1950.github.io/CSC-shift/schedule.html" className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors text-sm font-medium">
-                                                        <ExternalLink size={16} /> 請假查詢
+                                                        <ExternalLink size={16} /> 請假查詢系統
                                                     </a>
                                                 </div>
                                             </div>
@@ -441,7 +451,7 @@
                                                         className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 dark:text-slate-200" 
                                                     />
                                                     <button onClick={() => addMonth(1)} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-colors"><ChevronRight size={20} /></button>
-                                                    <button onClick={() => setCurrentDate(new Date())} className="ml-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors shadow-sm whitespace-nowrap">今天</button>
+                                                    <button onClick={resetToToday} className="ml-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors shadow-sm whitespace-nowrap">回到今天</button>
                                                 </div>
 
                                                 <div className="flex flex-col items-center gap-3">
