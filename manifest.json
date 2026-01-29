@@ -1,0 +1,21 @@
+{
+  "name": "中鋼班表查詢",
+  "short_name": "中鋼班表",
+  "description": "中鋼 4班3輪/3班3輪 班表查詢系統",
+  "start_url": "./shift.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e293b",
+  "icons": [
+    {
+      "src": "web/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "web/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

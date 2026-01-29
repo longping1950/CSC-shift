@@ -2,8 +2,16 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>中鋼班表查詢</title>
+    
+    <!-- PWA Settings -->
+    <link rel="icon" href="web/favicon.ico">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e293b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="web/icon-192.png"> 
     
     <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -43,7 +51,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef, useLayoutEffect } = React;
 
         // ==========================================
         //  Internal Icons (Replaces Lucide Dependency)
@@ -74,7 +82,6 @@
         const Moon = (props) => <IconBase {...props}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></IconBase>;
         const Sun = (props) => <IconBase {...props}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></IconBase>;
         const Layers = (props) => <IconBase {...props}><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></IconBase>;
-        // 新增 GitHub Icon
         const Github = (props) => <IconBase {...props}><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></IconBase>;
 
         // ==========================================
@@ -108,7 +115,7 @@
             const baseDate = new Date(Date.UTC(2026, 0, 26));
             const targetDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
 
-            const dayOfWeek = targetDate.getUTCDay(); 
+            const dayOfWeek = targetDate.getUTCDay(); // 0 = Sun, 1 = Mon ...
             const diffToMon = (dayOfWeek + 6) % 7;
             
             const targetMonday = new Date(targetDate);
@@ -134,7 +141,8 @@
             } else if (shiftType === '早') {
                 if (dayOfWeek >= 1 && dayOfWeek <= 6) isWorkDay = true;
             } else if (shiftType === '夜') {
-                if (dayOfWeek >= 2 && dayOfWeek <= 6) isWorkDay = true;
+                // Modified: EFG Night Shift is now Mon-Fri (1-5)
+                if (dayOfWeek >= 1 && dayOfWeek <= 5) isWorkDay = true;
             }
 
             return isWorkDay ? [shiftType, 1] : ["休", 0];
@@ -204,6 +212,11 @@
             const [selectedGroups, setSelectedGroups] = useState(['A']);
             const [modalData, setModalData] = useState({ isOpen: false, date: null });
             const [isDarkMode, setIsDarkMode] = useState(false);
+            const [controlScale, setControlScale] = useState(1);
+            const [contentHeight, setContentHeight] = useState('auto');
+            
+            const contentRef = useRef(null);
+            const headerWrapperRef = useRef(null); // Reference for the container width
 
             useEffect(() => {
                 try {
@@ -216,6 +229,44 @@
                     else if (window.matchMedia('(prefers-color-scheme: dark)').matches) setIsDarkMode(true);
                 } catch (e) {}
             }, []);
+
+            // 1. Scale Calculation Logic (ResizeObserver)
+            useEffect(() => {
+                if (!headerWrapperRef.current) return;
+
+                const resizeObserver = new ResizeObserver((entries) => {
+                    for (const entry of entries) {
+                        const availableWidth = entry.contentRect.width;
+                        // 設定縮放基準寬度為 480px，確保內容不換行也能完整顯示
+                        const minWidth = 480;
+                        
+                        // Only scale if necessary and safe
+                        if (availableWidth < minWidth && availableWidth > 0) {
+                            setControlScale(1.2 * availableWidth / minWidth);
+                        } else {
+                            setControlScale(1);
+                        }
+                    }
+                });
+
+                resizeObserver.observe(headerWrapperRef.current);
+                return () => resizeObserver.disconnect();
+            }, []); 
+
+            // 2. Height Adjustment Logic (useLayoutEffect to ensure DOM layout is ready)
+            // Measures height AFTER the scale and width (480px or 100%) have been applied
+            useLayoutEffect(() => {
+                if (contentRef.current) {
+                    if (controlScale < 1) {
+                        // When scaled, contentRef is fixed at 480px width.
+                        // We need to measure its layout height (offsetHeight) and multiply by scale.
+                        const unscaledHeight = contentRef.current.offsetHeight;
+                        setContentHeight(`${unscaledHeight * controlScale}px`);
+                    } else {
+                        setContentHeight('auto');
+                    }
+                }
+            }, [controlScale, currentDate, selectedGroups, isDarkMode]); // Re-measure when content/scale changes
 
             const updateGroups = (newGroups) => {
                 const order = [...GROUPS_LEGACY, ...GROUPS_NEW];
@@ -328,85 +379,106 @@
 
             const cellHeight = Math.max(100, 36 + (selectedGroups.length * 26) + 15);
             const monthInputValue = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-
-            // 自動計算版權年份
             const currentYear = new Date().getFullYear();
             const startYear = 2024;
             const displayYear = currentYear > startYear ? `${startYear}-${currentYear}` : `${startYear}`;
 
             return (
                 <div className={isDarkMode ? "dark" : ""}>
-                    <div className="min-h-screen bg-slate-100 dark:bg-slate-900 p-4 font-sans text-slate-800 dark:text-slate-100 transition-colors duration-200 flex flex-col">
+                    <div className="min-h-screen bg-slate-100 dark:bg-slate-900 p-2 md:p-4 font-sans text-slate-800 dark:text-slate-100 transition-colors duration-200 flex flex-col">
                         <div className="max-w-4xl mx-auto space-y-6 w-full flex-grow">
                             
-                            {/* Header Control Panel */}
-                            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 transition-colors duration-200">
-                                <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
-                                    <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                                        <CalendarIcon className="text-slate-600 dark:text-slate-300" />
-                                        中鋼班表查詢
-                                    </h1>
-                                    
-                                    <div className="flex items-center gap-2">
-                                        <button 
-                                            onClick={toggleDarkMode}
-                                            className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                                            title="切換深色模式"
-                                        >
-                                            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-                                        </button>
-                                        <a href="https://longping1950.github.io/CSC-shift/schedule.html" className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors text-sm font-medium">
-                                            <ExternalLink size={16} /> 請假查詢系統
-                                        </a>
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-col gap-4">
-                                    <div className="flex flex-wrap items-center justify-center gap-3 bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg border border-slate-100 dark:border-slate-700/50">
-                                        <button onClick={() => addMonth(-1)} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-colors"><ChevronLeft size={20} /></button>
-                                        <input 
-                                            type="month" 
-                                            value={monthInputValue} 
-                                            onChange={handleMonthChange} 
-                                            className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 dark:text-slate-200" 
-                                        />
-                                        <button onClick={() => addMonth(1)} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-colors"><ChevronRight size={20} /></button>
-                                        <button onClick={() => setCurrentDate(new Date())} className="ml-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors shadow-sm">回到今天</button>
-                                    </div>
-
-                                    <div className="flex flex-col items-center gap-3">
-                                        <div className="flex flex-wrap justify-center items-center gap-2 p-2 rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors">
-                                            <button 
-                                                onClick={() => toggleGroupSet(GROUPS_LEGACY)}
-                                                className="flex items-center gap-1 px-2 py-1 bg-slate-200 dark:bg-slate-700 text-xs font-bold rounded hover:bg-slate-300 dark:hover:bg-slate-600 mr-2 text-slate-700 dark:text-slate-200"
-                                                title="全選/取消 4班3輪"
-                                            >
-                                                <Layers size={14} /> 4班3輪
-                                            </button>
-                                            {GROUPS_LEGACY.map(g => (
-                                                <label key={g} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer transition-all border select-none text-sm ${selectedGroups.includes(g) ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 font-bold shadow-sm' : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
-                                                    <input type="checkbox" checked={selectedGroups.includes(g)} onChange={() => handleGroupChange(g)} className="hidden" />
-                                                    <span>{g} 股</span>
-                                                </label>
-                                            ))}
+                            {/* Header Control Panel - Scaled Whole Block */}
+                            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 transition-colors duration-200 overflow-hidden p-2 md:p-6">
+                                <div 
+                                    ref={headerWrapperRef}
+                                    className="w-full flex justify-center origin-top transition-transform duration-200"
+                                    style={{ 
+                                        height: contentHeight
+                                    }}
+                                >
+                                    <div 
+                                        ref={contentRef}
+                                        style={{
+                                            // 使用 480px 作為縮放基準，確保不換行時寬度足夠
+                                            width: controlScale < 1 ? '480px' : '100%',
+                                            transform: controlScale < 1 ? `scale(${controlScale})` : 'none',
+                                            transformOrigin: 'top center',
+                                        }}
+                                    >
+                                        {/* Original Header Content */}
+                                        {/* Modified: flex-row to ensure title and buttons are on the same line, whitespace-nowrap */}
+                                        <div className="flex flex-row justify-between items-center gap-4 mb-6 whitespace-nowrap">
+                                            <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                                <CalendarIcon className="text-slate-600 dark:text-slate-300" />
+                                                中鋼班表查詢
+                                            </h1>
+                                            
+                                            <div className="flex items-center gap-2">
+                                                <button 
+                                                    onClick={toggleDarkMode}
+                                                    className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                                    title="切換深色模式"
+                                                >
+                                                    {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                                                </button>
+                                                <a href="https://longping1950.github.io/CSC-shift/schedule.html" className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors text-sm font-medium">
+                                                    <ExternalLink size={16} /> 請假查詢系統
+                                                </a>
+                                            </div>
                                         </div>
-                                        
-                                        <div className="w-full h-px bg-slate-100 dark:bg-slate-700"></div>
 
-                                        <div className="flex flex-wrap justify-center items-center gap-2 p-2 rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors">
-                                            <button 
-                                                onClick={() => toggleGroupSet(GROUPS_NEW)}
-                                                className="flex items-center gap-1 px-2 py-1 bg-slate-200 dark:bg-slate-700 text-xs font-bold rounded hover:bg-slate-300 dark:hover:bg-slate-600 mr-2 text-slate-700 dark:text-slate-200"
-                                                title="全選/取消 3班3輪"
-                                            >
-                                                <Layers size={14} /> 3班3輪
-                                            </button>
-                                            {GROUPS_NEW.map(g => (
-                                                <label key={g} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer transition-all border select-none text-sm ${selectedGroups.includes(g) ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-700 dark:text-green-300 font-bold shadow-sm' : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
-                                                    <input type="checkbox" checked={selectedGroups.includes(g)} onChange={() => handleGroupChange(g)} className="hidden" />
-                                                    <span>{g} 股</span>
-                                                </label>
-                                            ))}
+                                        <div className="flex flex-col gap-4">
+                                            {/* Modified: flex-nowrap to prevent wrapping, whitespace-nowrap to keep text in one line */}
+                                            <div className="flex flex-nowrap whitespace-nowrap items-center justify-center gap-3 bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg border border-slate-100 dark:border-slate-700/50">
+                                                <button onClick={() => addMonth(-1)} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-colors"><ChevronLeft size={20} /></button>
+                                                <input 
+                                                    type="month" 
+                                                    value={monthInputValue} 
+                                                    onChange={handleMonthChange} 
+                                                    className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 dark:text-slate-200" 
+                                                />
+                                                <button onClick={() => addMonth(1)} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-colors"><ChevronRight size={20} /></button>
+                                                <button onClick={() => setCurrentDate(new Date())} className="ml-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors shadow-sm whitespace-nowrap">今天</button>
+                                            </div>
+
+                                            <div className="flex flex-col items-center gap-3">
+                                                {/* Modified: flex-nowrap to prevent wrapping, whitespace-nowrap to keep text in one line */}
+                                                <div className="flex flex-nowrap whitespace-nowrap justify-center items-center gap-2 p-2 rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors w-full">
+                                                    <button 
+                                                        onClick={() => toggleGroupSet(GROUPS_LEGACY)}
+                                                        className="flex items-center gap-1 px-2 py-1 bg-slate-200 dark:bg-slate-700 text-xs font-bold rounded hover:bg-slate-300 dark:hover:bg-slate-600 mr-2 text-slate-700 dark:text-slate-200 whitespace-nowrap"
+                                                        title="全選/取消 4班3輪"
+                                                    >
+                                                        <Layers size={14} /> 4班3輪
+                                                    </button>
+                                                    {GROUPS_LEGACY.map(g => (
+                                                        <label key={g} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer transition-all border select-none text-sm ${selectedGroups.includes(g) ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 font-bold shadow-sm' : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
+                                                            <input type="checkbox" checked={selectedGroups.includes(g)} onChange={() => handleGroupChange(g)} className="hidden" />
+                                                            <span>{g} 股</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                                
+                                                <div className="w-full h-px bg-slate-100 dark:bg-slate-700"></div>
+
+                                                {/* Modified: flex-nowrap to prevent wrapping, whitespace-nowrap to keep text in one line */}
+                                                <div className="flex flex-nowrap whitespace-nowrap justify-center items-center gap-2 p-2 rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors w-full">
+                                                    <button 
+                                                        onClick={() => toggleGroupSet(GROUPS_NEW)}
+                                                        className="flex items-center gap-1 px-2 py-1 bg-slate-200 dark:bg-slate-700 text-xs font-bold rounded hover:bg-slate-300 dark:hover:bg-slate-600 mr-2 text-slate-700 dark:text-slate-200 whitespace-nowrap"
+                                                        title="全選/取消 3班3輪"
+                                                    >
+                                                        <Layers size={14} /> 3班3輪
+                                                    </button>
+                                                    {GROUPS_NEW.map(g => (
+                                                        <label key={g} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer transition-all border select-none text-sm ${selectedGroups.includes(g) ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-700 dark:text-green-300 font-bold shadow-sm' : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
+                                                            <input type="checkbox" checked={selectedGroups.includes(g)} onChange={() => handleGroupChange(g)} className="hidden" />
+                                                            <span>{g} 股</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -421,10 +493,10 @@
                                     ))}
                                 </div>
 
-                                {/* Content Row: Relative container for Background Grid + Overlay Layer */}
+                                {/* Content Row */}
                                 <div className="relative border-l border-t border-slate-100 dark:border-slate-700">
                                     
-                                    {/* 1. Background Grid (Interactive) */}
+                                    {/* Background Grid */}
                                     <div className="grid grid-cols-7 divide-x divide-y divide-slate-100 dark:divide-slate-700 bg-slate-200 dark:bg-slate-900 gap-px">
                                         {calendarData.map((date, idx) => {
                                             if (!date) return <div key={idx} className="bg-slate-50/50 dark:bg-slate-800/50" style={{ height: cellHeight }}></div>;
@@ -448,23 +520,35 @@
                                         })}
                                     </div>
 
-                                    {/* 2. Overlay Layer (Shift Segments) - Absolutely positioned to match Background Grid exactly */}
+                                    {/* Overlay Layer (Shift Segments) */}
                                     <div className="absolute inset-0 grid grid-cols-7 gap-px border-l border-t border-transparent pointer-events-none"> 
                                         {calendarData.map((date, idx) => {
                                             const startingSegments = shiftSegments.filter(s => s.startIndex === idx);
                                             
-                                            // Important: Keep the structure identical to background grid by rendering empty cells with same height
                                             return (
                                                 <div key={idx} className="relative w-full" style={{ height: cellHeight }}>
                                                     {startingSegments.map((seg, i) => {
-                                                        // 調整 top 位置：從 30px 改為 36px，讓條不要太貼近日期的數字
                                                         const topCalc = `${36 + (seg.rowIndex * 26)}px`;
+                                                        
+                                                        // Visual adjustment for EFG Night Shift
+                                                        // EFG Night Shift starts at 75% (3/4) and extends full length (100% of day) to cross into next day
+                                                        const isNightEFG = GROUPS_NEW.includes(seg.group) && seg.shiftName === '夜';
+                                                        
+                                                        // If it's Night EFG, left is 75%
+                                                        const leftStyle = isNightEFG ? '75%' : '2px';
+                                                        
+                                                        // Width calculation:
+                                                        // Standard: (Length * 100)% + (spacers)
+                                                        // EFG Night: Same width (100% per day) just shifted. It will visually overflow.
+                                                        const widthCalc = `calc(${seg.length * 100}% + ${seg.length - 1}px - 4px)`;
+
                                                         return (
                                                             <div
                                                                 key={`${idx}-${i}`}
-                                                                className={`absolute left-[2px] h-[24px] rounded px-1 flex items-center gap-1 shadow-sm border border-opacity-50 dark:border-opacity-30 z-20 transition-colors duration-200 ${SHIFT_STYLES[seg.shiftName]}`}
+                                                                className={`absolute h-[24px] rounded px-1 flex items-center gap-1 shadow-sm border border-opacity-50 dark:border-opacity-30 z-20 transition-colors duration-200 ${SHIFT_STYLES[seg.shiftName]}`}
                                                                 style={{ 
-                                                                    width: `calc(${seg.length * 100}% + ${seg.length - 1}px - 4px)`, 
+                                                                    left: leftStyle,
+                                                                    width: widthCalc,
                                                                     top: topCalc,
                                                                     pointerEvents: 'none'
                                                                 }}
@@ -501,6 +585,19 @@
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
+
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
     </script>
 </body>
 </html>
