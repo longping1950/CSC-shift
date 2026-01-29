@@ -242,7 +242,8 @@
                         
                         // Only scale if necessary and safe
                         if (availableWidth < minWidth && availableWidth > 0) {
-                            setControlScale(1.2 * availableWidth / minWidth);
+                            // 使用 1.2 倍數增益，讓手機版內容稍微大一點
+                            setControlScale((availableWidth / minWidth) * 1.2);
                         } else {
                             setControlScale(1);
                         }
@@ -258,8 +259,9 @@
             useLayoutEffect(() => {
                 if (contentRef.current) {
                     if (controlScale < 1) {
-                        // When scaled, contentRef is fixed at 480px width.
-                        // We need to measure its layout height (offsetHeight) and multiply by scale.
+                        // When scaled, measure the INNER unscaled content height.
+                        // Because contentRef is now inside the scaling div, but we wrap the content in a clean div
+                        // offsetHeight here will reflect the correct layout height of the 480px content.
                         const unscaledHeight = contentRef.current.offsetHeight;
                         setContentHeight(`${unscaledHeight * controlScale}px`);
                     } else {
@@ -398,7 +400,6 @@
                                     }}
                                 >
                                     <div 
-                                        ref={contentRef}
                                         style={{
                                             // 使用 480px 作為縮放基準，確保不換行時寬度足夠
                                             width: controlScale < 1 ? '480px' : '100%',
@@ -406,77 +407,79 @@
                                             transformOrigin: 'top center',
                                         }}
                                     >
-                                        {/* Original Header Content */}
-                                        {/* Modified: flex-row to ensure title and buttons are on the same line, whitespace-nowrap */}
-                                        <div className="flex flex-row justify-between items-center gap-4 mb-6 whitespace-nowrap">
-                                            <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                                                <CalendarIcon className="text-slate-600 dark:text-slate-300" />
-                                                中鋼班表查詢
-                                            </h1>
-                                            
-                                            <div className="flex items-center gap-2">
-                                                <button 
-                                                    onClick={toggleDarkMode}
-                                                    className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                                                    title="切換深色模式"
-                                                >
-                                                    {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-                                                </button>
-                                                <a href="https://longping1950.github.io/CSC-shift/schedule.html" className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors text-sm font-medium">
-                                                    <ExternalLink size={16} /> 請假查詢系統
-                                                </a>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-col gap-4">
-                                            {/* Modified: flex-nowrap to prevent wrapping, whitespace-nowrap to keep text in one line */}
-                                            <div className="flex flex-nowrap whitespace-nowrap items-center justify-center gap-3 bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg border border-slate-100 dark:border-slate-700/50">
-                                                <button onClick={() => addMonth(-1)} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-colors"><ChevronLeft size={20} /></button>
-                                                <input 
-                                                    type="month" 
-                                                    value={monthInputValue} 
-                                                    onChange={handleMonthChange} 
-                                                    className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 dark:text-slate-200" 
-                                                />
-                                                <button onClick={() => addMonth(1)} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-colors"><ChevronRight size={20} /></button>
-                                                <button onClick={() => setCurrentDate(new Date())} className="ml-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors shadow-sm whitespace-nowrap">今天</button>
-                                            </div>
-
-                                            <div className="flex flex-col items-center gap-3">
-                                                {/* Modified: flex-nowrap to prevent wrapping, whitespace-nowrap to keep text in one line */}
-                                                <div className="flex flex-nowrap whitespace-nowrap justify-center items-center gap-2 p-2 rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors w-full">
-                                                    <button 
-                                                        onClick={() => toggleGroupSet(GROUPS_LEGACY)}
-                                                        className="flex items-center gap-1 px-2 py-1 bg-slate-200 dark:bg-slate-700 text-xs font-bold rounded hover:bg-slate-300 dark:hover:bg-slate-600 mr-2 text-slate-700 dark:text-slate-200 whitespace-nowrap"
-                                                        title="全選/取消 4班3輪"
-                                                    >
-                                                        <Layers size={14} /> 4班3輪
-                                                    </button>
-                                                    {GROUPS_LEGACY.map(g => (
-                                                        <label key={g} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer transition-all border select-none text-sm ${selectedGroups.includes(g) ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 font-bold shadow-sm' : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
-                                                            <input type="checkbox" checked={selectedGroups.includes(g)} onChange={() => handleGroupChange(g)} className="hidden" />
-                                                            <span>{g} 股</span>
-                                                        </label>
-                                                    ))}
-                                                </div>
+                                        <div ref={contentRef}>
+                                            {/* Original Header Content */}
+                                            {/* Modified: flex-row to ensure title and buttons are on the same line, whitespace-nowrap */}
+                                            <div className="flex flex-row justify-between items-center gap-4 mb-6 whitespace-nowrap">
+                                                <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                                    <CalendarIcon className="text-slate-600 dark:text-slate-300" />
+                                                    中鋼班表查詢
+                                                </h1>
                                                 
-                                                <div className="w-full h-px bg-slate-100 dark:bg-slate-700"></div>
-
-                                                {/* Modified: flex-nowrap to prevent wrapping, whitespace-nowrap to keep text in one line */}
-                                                <div className="flex flex-nowrap whitespace-nowrap justify-center items-center gap-2 p-2 rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors w-full">
+                                                <div className="flex items-center gap-2">
                                                     <button 
-                                                        onClick={() => toggleGroupSet(GROUPS_NEW)}
-                                                        className="flex items-center gap-1 px-2 py-1 bg-slate-200 dark:bg-slate-700 text-xs font-bold rounded hover:bg-slate-300 dark:hover:bg-slate-600 mr-2 text-slate-700 dark:text-slate-200 whitespace-nowrap"
-                                                        title="全選/取消 3班3輪"
+                                                        onClick={toggleDarkMode}
+                                                        className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                                        title="切換深色模式"
                                                     >
-                                                        <Layers size={14} /> 3班3輪
+                                                        {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
                                                     </button>
-                                                    {GROUPS_NEW.map(g => (
-                                                        <label key={g} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer transition-all border select-none text-sm ${selectedGroups.includes(g) ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-700 dark:text-green-300 font-bold shadow-sm' : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
-                                                            <input type="checkbox" checked={selectedGroups.includes(g)} onChange={() => handleGroupChange(g)} className="hidden" />
-                                                            <span>{g} 股</span>
-                                                        </label>
-                                                    ))}
+                                                    <a href="https://longping1950.github.io/CSC-shift/schedule.html" className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors text-sm font-medium">
+                                                        <ExternalLink size={16} /> 請假查詢
+                                                    </a>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-col gap-4">
+                                                {/* Modified: flex-nowrap to prevent wrapping, whitespace-nowrap to keep text in one line */}
+                                                <div className="flex flex-nowrap whitespace-nowrap items-center justify-center gap-3 bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg border border-slate-100 dark:border-slate-700/50">
+                                                    <button onClick={() => addMonth(-1)} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-colors"><ChevronLeft size={20} /></button>
+                                                    <input 
+                                                        type="month" 
+                                                        value={monthInputValue} 
+                                                        onChange={handleMonthChange} 
+                                                        className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 dark:text-slate-200" 
+                                                    />
+                                                    <button onClick={() => addMonth(1)} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-colors"><ChevronRight size={20} /></button>
+                                                    <button onClick={() => setCurrentDate(new Date())} className="ml-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors shadow-sm whitespace-nowrap">今天</button>
+                                                </div>
+
+                                                <div className="flex flex-col items-center gap-3">
+                                                    {/* Modified: flex-nowrap to prevent wrapping, whitespace-nowrap to keep text in one line */}
+                                                    <div className="flex flex-nowrap whitespace-nowrap justify-center items-center gap-2 p-2 rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors w-full">
+                                                        <button 
+                                                            onClick={() => toggleGroupSet(GROUPS_LEGACY)}
+                                                            className="flex items-center gap-1 px-2 py-1 bg-slate-200 dark:bg-slate-700 text-xs font-bold rounded hover:bg-slate-300 dark:hover:bg-slate-600 mr-2 text-slate-700 dark:text-slate-200 whitespace-nowrap"
+                                                            title="全選/取消 4班3輪"
+                                                        >
+                                                            <Layers size={14} /> 4班3輪
+                                                        </button>
+                                                        {GROUPS_LEGACY.map(g => (
+                                                            <label key={g} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer transition-all border select-none text-sm ${selectedGroups.includes(g) ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 font-bold shadow-sm' : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
+                                                                <input type="checkbox" checked={selectedGroups.includes(g)} onChange={() => handleGroupChange(g)} className="hidden" />
+                                                                <span>{g} 股</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                    
+                                                    <div className="w-full h-px bg-slate-100 dark:bg-slate-700"></div>
+
+                                                    {/* Modified: flex-nowrap to prevent wrapping, whitespace-nowrap to keep text in one line */}
+                                                    <div className="flex flex-nowrap whitespace-nowrap justify-center items-center gap-2 p-2 rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors w-full">
+                                                        <button 
+                                                            onClick={() => toggleGroupSet(GROUPS_NEW)}
+                                                            className="flex items-center gap-1 px-2 py-1 bg-slate-200 dark:bg-slate-700 text-xs font-bold rounded hover:bg-slate-300 dark:hover:bg-slate-600 mr-2 text-slate-700 dark:text-slate-200 whitespace-nowrap"
+                                                            title="全選/取消 3班3輪"
+                                                        >
+                                                            <Layers size={14} /> 3班3輪
+                                                        </button>
+                                                        {GROUPS_NEW.map(g => (
+                                                            <label key={g} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer transition-all border select-none text-sm ${selectedGroups.includes(g) ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-700 dark:text-green-300 font-bold shadow-sm' : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
+                                                                <input type="checkbox" checked={selectedGroups.includes(g)} onChange={() => handleGroupChange(g)} className="hidden" />
+                                                                <span>{g} 股</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
