@@ -1,6 +1,7 @@
-const CACHE_NAME = 'csc-shift-v1';
+const CACHE_NAME = 'csc-shift-v1.1';
 const urlsToCache = [
   './shift.html',
+  './schedule.html',
   './manifest.json',
   'web/favicon.ico',
   'web/icon-192.png',
