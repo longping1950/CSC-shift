@@ -117,7 +117,7 @@
         function getLegacyShift(date, group) {
             const shiftIndex = partShiftStarts[group];
             const ordinalDate = getOrdinalDate(date);
-            const nList = (ordinalDate + shiftIndex + 1 + 200000) % 20;
+            const nList = (ordinalDate + shiftIndex + 200000) % 20;
             return shiftListLegacy[nList];
         }
 
