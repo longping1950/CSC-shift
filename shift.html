@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>班表查詢</title>
+    <title>中鋼班表查詢</title>
     
     <!-- PWA Settings -->
-    <link rel="icon" href="web/favicon.ico">
-    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="./web/favicon.ico">
+    <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#1e293b">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="web/icon-192.png"> 
+    <link rel="apple-touch-icon" href="./web/icon-192.png"> 
     
     <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -52,6 +52,12 @@
             50% { transform: translateY(5px); }
         }
         .animate-bounce-slow { animation: bounce-slow 2s infinite; }
+        
+        @keyframes slide-up {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up { animation: slide-up 0.3s ease-out forwards; }
     </style>
 </head>
 <body>
@@ -61,7 +67,7 @@
         const { useState, useEffect, useMemo, useRef, useLayoutEffect } = React;
 
         // ==========================================
-        //  Internal Icons (Replaces Lucide Dependency)
+        //  Internal Icons
         // ==========================================
         
         const IconBase = ({ children, size = 24, className = "" }) => (
@@ -117,6 +123,7 @@
         function getLegacyShift(date, group) {
             const shiftIndex = partShiftStarts[group];
             const ordinalDate = getOrdinalDate(date);
+            // Modified: Removed "+ 1" to fix shift offset error
             const nList = (ordinalDate + shiftIndex + 200000) % 20;
             return shiftListLegacy[nList];
         }
@@ -151,8 +158,8 @@
             } else if (shiftType === '早') {
                 if (dayOfWeek >= 1 && dayOfWeek <= 6) isWorkDay = true;
             } else if (shiftType === '夜') {
-                // EFG Night Shift: Mon-Fri (1-5)
-                if (dayOfWeek >= 1 && dayOfWeek <= 5) isWorkDay = true;
+                // EFG Night Shift is Tue-Sat (2-6)
+                if (dayOfWeek >= 2 && dayOfWeek <= 6) isWorkDay = true;
             }
 
             return isWorkDay ? [shiftType, 1] : ["休", 0];
@@ -217,7 +224,6 @@
             );
         };
 
-        // iOS Install Instruction Modal
         const InstallModal = ({ isOpen, onClose }) => {
             if (!isOpen) return null;
             return (
@@ -255,6 +261,7 @@
         }
 
         const App = () => {
+            // Initialize with 1st day of month
             const [currentDate, setCurrentDate] = useState(() => {
                 const now = new Date();
                 return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -265,7 +272,7 @@
             const [controlScale, setControlScale] = useState(1);
             const [contentHeight, setContentHeight] = useState('auto');
             
-            // PWA Install States
+            // PWA States
             const [installPrompt, setInstallPrompt] = useState(null);
             const [showInstallModal, setShowInstallModal] = useState(false);
             const [isIOS, setIsIOS] = useState(false);
@@ -286,23 +293,20 @@
                 } catch (e) {}
             }, []);
 
-            // PWA Logic: Install Prompt & iOS Detection
+            // PWA Logic
             useEffect(() => {
-                // 1. Check if running in standalone mode (already installed)
                 const checkStandalone = () => {
                     return window.matchMedia('(display-mode: standalone)').matches || 
                            window.navigator.standalone === true;
                 };
                 setIsStandalone(checkStandalone());
 
-                // 2. Android/Chrome Install Prompt
                 const handleBeforeInstallPrompt = (e) => {
                     e.preventDefault();
                     setInstallPrompt(e);
                 };
                 window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
-                // 3. iOS Detection
                 const userAgent = window.navigator.userAgent.toLowerCase();
                 const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
                 setIsIOS(isIosDevice);
@@ -312,7 +316,6 @@
 
             const handleInstallClick = () => {
                 if (installPrompt) {
-                    // Android / Desktop Chrome
                     installPrompt.prompt();
                     installPrompt.userChoice.then((choiceResult) => {
                         if (choiceResult.outcome === 'accepted') {
@@ -320,7 +323,6 @@
                         }
                     });
                 } else if (isIOS && !isStandalone) {
-                    // iOS
                     setShowInstallModal(true);
                 }
             };
@@ -397,9 +399,7 @@
 
             const addMonth = (offset) => {
                 setCurrentDate(prev => {
-                    const newDate = new Date(prev);
-                    newDate.setMonth(newDate.getMonth() + offset);
-                    return newDate;
+                    return new Date(prev.getFullYear(), prev.getMonth() + offset, 1);
                 });
             };
 
@@ -501,11 +501,10 @@
                                             <div className="flex flex-row justify-between items-center gap-4 mb-6 whitespace-nowrap">
                                                 <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                                                     <CalendarIcon className="text-slate-600 dark:text-slate-300" />
-                                                    班表查詢
+                                                    中鋼班表查詢
                                                 </h1>
                                                 
                                                 <div className="flex items-center gap-2">
-                                                    {/* Install Button: Shows if installable (Android) OR if iOS & not standalone */}
                                                     {((installPrompt) || (isIOS && !isStandalone)) && (
                                                         <button 
                                                             onClick={handleInstallClick}
@@ -524,7 +523,7 @@
                                                         {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
                                                     </button>
                                                     <a href="./schedule.html" className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors text-sm font-medium">
-                                                        <ExternalLink size={16} /> 請假查詢
+                                                        <ExternalLink size={16} /> 請假查詢系統
                                                     </a>
                                                 </div>
                                             </div>
@@ -539,7 +538,7 @@
                                                         className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 dark:text-slate-200" 
                                                     />
                                                     <button onClick={() => addMonth(1)} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-colors"><ChevronRight size={20} /></button>
-                                                    <button onClick={resetToToday} className="ml-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors shadow-sm whitespace-nowrap">今天</button>
+                                                    <button onClick={resetToToday} className="ml-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors shadow-sm whitespace-nowrap">回到今天</button>
                                                 </div>
 
                                                 <div className="flex flex-col items-center gap-3">
@@ -629,9 +628,7 @@
                                                     {startingSegments.map((seg, i) => {
                                                         const topCalc = `${36 + (seg.rowIndex * 26)}px`;
                                                         
-                                                        // EFG Night Shift
-                                                        const isNightEFG = GROUPS_NEW.includes(seg.group) && seg.shiftName === '夜';
-                                                        const leftStyle = isNightEFG ? '75%' : '2px';
+                                                        // EFG logic changed, removing special offset visual
                                                         const widthCalc = `calc(${seg.length * 100}% + ${seg.length - 1}px - 4px)`;
 
                                                         return (
@@ -639,7 +636,7 @@
                                                                 key={`${idx}-${i}`}
                                                                 className={`absolute h-[24px] rounded px-1 flex items-center gap-1 shadow-sm border border-opacity-50 dark:border-opacity-30 z-20 transition-colors duration-200 ${SHIFT_STYLES[seg.shiftName]}`}
                                                                 style={{ 
-                                                                    left: leftStyle,
+                                                                    left: '2px',
                                                                     width: widthCalc,
                                                                     top: topCalc,
                                                                     pointerEvents: 'none'
@@ -662,7 +659,7 @@
 
                         <footer className="text-center text-slate-400 dark:text-slate-500 text-sm py-4 mt-auto">
                             <p className="flex items-center justify-center gap-1">
-                                {displayYear} &copy; longping. Shift System.
+                                {displayYear} &copy; longping. CSC Shift System.
                                 <a href="https://github.com/longping1950/CSC-shift" className="ml-4 hover:text-blue-500 transition-colors" title="View on GitHub">
                                     <Github size={16} />
                                 </a>
