@@ -1,4 +1,4 @@
-const CACHE_NAME = 'csc-shift-v3';
+const CACHE_NAME = 'csc-shift-v5';
 // 使用相對路徑 ./ 以相容 GitHub Pages 子目錄
 const urlsToCache = [
   './shift.html',
