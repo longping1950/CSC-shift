@@ -1,4 +1,4 @@
-const CACHE_NAME = 'csc-shift-v5';
+const CACHE_NAME = 'csc-shift-v2';
 // 使用相對路徑 ./ 以相容 GitHub Pages 子目錄
 const urlsToCache = [
   './shift.html',
@@ -14,17 +14,11 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', event => {
-  // 強制讓 Service Worker 立即進入 waiting 狀態，不需等待舊的 SW 停止
   self.skipWaiting();
-  
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Opened cache');
         return cache.addAll(urlsToCache);
-      })
-      .catch(err => {
-        console.error('Cache addAll error: ', err);
       })
   );
 });
@@ -33,7 +27,6 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        // Cache hit - return response
         if (response) {
           return response;
         }
@@ -46,7 +39,6 @@ self.addEventListener('activate', event => {
   const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
     Promise.all([
-      // 清理舊的快取
       caches.keys().then(cacheNames => {
         return Promise.all(
           cacheNames.map(cacheName => {
@@ -56,7 +48,6 @@ self.addEventListener('activate', event => {
           })
         );
       }),
-      // 讓 Service Worker 立即接管所有頁面，不需重新整理
       self.clients.claim()
     ])
   );

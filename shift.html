@@ -185,7 +185,7 @@
         //  UI Components
         // ==========================================
 
-        const Modal = ({ isOpen, onClose, date, selectedGroups }) => {
+        const Modal = ({ isOpen, onClose, date, selectedGroups, holidayInfo }) => {
             if (!isOpen || !date) return null;
 
             const groupsToShow = selectedGroups.length > 0 ? selectedGroups : [...GROUPS_LEGACY, ...GROUPS_NEW];
@@ -197,9 +197,19 @@
             return (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}>
                     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden transform transition-all scale-100 border dark:border-slate-700" onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-slate-700 to-slate-800 dark:from-slate-900 dark:to-slate-800 p-4 flex justify-between items-center text-white">
-                            <h3 className="font-bold text-lg">{date.getMonth() + 1}月{date.getDate()}日 (週{weekDayStr})</h3>
-                            <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors"><X size={20} /></button>
+                        <div className="bg-gradient-to-r from-slate-700 to-slate-800 dark:from-slate-900 dark:to-slate-800 p-4 text-white">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="font-bold text-lg">{date.getMonth() + 1}月{date.getDate()}日 (週{weekDayStr})</h3>
+                                    {/* Holiday Subtitle */}
+                                    {holidayInfo && (
+                                        <p className="text-red-300 text-sm mt-1 font-medium bg-white/10 inline-block px-2 py-0.5 rounded">
+                                            {holidayInfo.description}
+                                        </p>
+                                    )}
+                                </div>
+                                <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors -mr-1 -mt-1"><X size={20} /></button>
+                            </div>
                         </div>
                         <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
                             {groupsToShow.map(group => {
@@ -261,7 +271,6 @@
         }
 
         const App = () => {
-            // Initialize with 1st day of month
             const [currentDate, setCurrentDate] = useState(() => {
                 const now = new Date();
                 return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -272,6 +281,9 @@
             const [controlScale, setControlScale] = useState(1);
             const [contentHeight, setContentHeight] = useState('auto');
             
+            // Holidays State
+            const [holidayMap, setHolidayMap] = useState({});
+
             // PWA States
             const [installPrompt, setInstallPrompt] = useState(null);
             const [showInstallModal, setShowInstallModal] = useState(false);
@@ -292,6 +304,44 @@
                     else if (window.matchMedia('(prefers-color-scheme: dark)').matches) setIsDarkMode(true);
                 } catch (e) {}
             }, []);
+
+            // Holiday Fetcher
+            useEffect(() => {
+                const fetchHolidays = async (year) => {
+                    const cacheKey = `holidays_${year}`;
+                    const cached = localStorage.getItem(cacheKey);
+                    
+                    if (cached) {
+                        try {
+                            const data = JSON.parse(cached);
+                            // Merge into map: key = YYYYMMDD
+                            setHolidayMap(prev => {
+                                const newMap = { ...prev };
+                                data.forEach(h => newMap[h.date] = h);
+                                return newMap;
+                            });
+                            return; // Use cache if available
+                        } catch(e) {}
+                    }
+
+                    try {
+                        const res = await fetch(`https://cdn.jsdelivr.net/gh/ruyut/TaiwanCalendar/data/${year}.json`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            localStorage.setItem(cacheKey, JSON.stringify(data));
+                            setHolidayMap(prev => {
+                                const newMap = { ...prev };
+                                data.forEach(h => newMap[h.date] = h);
+                                return newMap;
+                            });
+                        }
+                    } catch (e) {
+                        console.error("Failed to fetch holidays", e);
+                    }
+                };
+
+                fetchHolidays(currentDate.getFullYear());
+            }, [currentDate.getFullYear()]); // Refetch when year changes
 
             // PWA Logic
             useEffect(() => {
@@ -599,17 +649,32 @@
                                         {calendarData.map((date, idx) => {
                                             if (!date) return <div key={idx} className="bg-slate-50/50 dark:bg-slate-800/50" style={{ height: cellHeight }}></div>;
                                             const isToday = new Date().toDateString() === date.toDateString();
+                                            
+                                            // Holiday Logic
+                                            const dateKey = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+                                            const holidayInfo = holidayMap[dateKey];
                                             const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                                            
+                                            // 判斷順序：
+                                            // 1. 如果有假日資料，且 isHoliday 為 true -> 紅字
+                                            // 2. 如果有假日資料，且 isHoliday 為 false (補班日) -> 正常色 (黑/白)
+                                            // 3. 如果沒有資料 (例如資料庫未更新)，則維持週六日紅字
+                                            let isRedDay = false;
+                                            if (holidayInfo) {
+                                                if (holidayInfo.isHoliday) isRedDay = true;
+                                            } else {
+                                                if (isWeekend) isRedDay = true;
+                                            }
 
                                             return (
                                                 <div 
                                                     key={idx} 
                                                     className="bg-white dark:bg-slate-800 relative hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer group"
                                                     style={{ height: cellHeight }}
-                                                    onClick={() => setModalData({ isOpen: true, date })}
+                                                    onClick={() => setModalData({ isOpen: true, date, holidayInfo })} // Pass holiday info
                                                 >
                                                     <div className="absolute top-2 right-2 z-10">
-                                                        <span className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium ${isToday ? 'bg-blue-600 text-white shadow-md' : isWeekend ? 'text-slate-500 dark:text-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                        <span className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium ${isToday ? 'bg-blue-600 text-white shadow-md' : isRedDay ? 'text-red-500 dark:text-red-400 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>
                                                             {date.getDate()}
                                                         </span>
                                                     </div>
@@ -659,14 +724,14 @@
 
                         <footer className="text-center text-slate-400 dark:text-slate-500 text-sm py-4 mt-auto">
                             <p className="flex items-center justify-center gap-1">
-                                {displayYear} &copy; longping.cc
+                                {displayYear} &copy; longping. CSC Shift System.
                                 <a href="https://github.com/longping1950/CSC-shift" className="ml-4 hover:text-blue-500 transition-colors" title="View on GitHub">
                                     <Github size={16} />
                                 </a>
                             </p>
                         </footer>
 
-                        <Modal isOpen={modalData.isOpen} onClose={() => setModalData({ ...modalData, isOpen: false })} date={modalData.date} selectedGroups={selectedGroups} />
+                        <Modal isOpen={modalData.isOpen} onClose={() => setModalData({ ...modalData, isOpen: false })} date={modalData.date} selectedGroups={selectedGroups} holidayInfo={modalData.holidayInfo} />
                         <InstallModal isOpen={showInstallModal} onClose={() => setShowInstallModal(false)} />
                     </div>
                 </div>
@@ -682,6 +747,11 @@
                 navigator.serviceWorker.register('./sw.js')
                     .then(registration => {
                         console.log('SW registered: ', registration);
+                        
+                        // Listen for SW updates to force reload and prevent white screen
+                        navigator.serviceWorker.addEventListener('controllerchange', () => {
+                            window.location.reload();
+                        });
                     })
                     .catch(registrationError => {
                         console.log('SW registration failed: ', registrationError);
