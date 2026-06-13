@@ -2,7 +2,7 @@
   "name": "班表查詢",
   "short_name": "班表",
   "description": "班表查詢",
-  "start_url": "./shift.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#4a7aac",
   "theme_color": "#4a7aac",

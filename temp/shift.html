@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>中鋼班表查詢</title>
+    
+    <!-- PWA Settings -->
+    <link rel="icon" href="./web/favicon.ico">
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#1e293b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="./web/icon-192.png"> 
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Configure Tailwind for Dark Mode -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: { 850: '#151f32' }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body { font-family: system-ui, -apple-system, "Microsoft JhengHei", sans-serif; }
+        /* Custom scrollbar for better look */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* iOS Instruction Animation */
+        @keyframes bounce-slow {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(5px); }
+        }
+        .animate-bounce-slow { animation: bounce-slow 2s infinite; }
+        
+        @keyframes slide-up {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up { animation: slide-up 0.3s ease-out forwards; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef, useLayoutEffect } = React;
+
+        // ==========================================
+        //  Internal Icons
+        // ==========================================
+        
+        const IconBase = ({ children, size = 24, className = "" }) => (
+            <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width={size} 
+                height={size} 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className={className}
+            >
+                {children}
+            </svg>
+        );
+
+        const ChevronLeft = (props) => <IconBase {...props}><path d="m15 18-6-6 6-6"/></IconBase>;
+        const ChevronRight = (props) => <IconBase {...props}><path d="m9 18 6-6-6-6"/></IconBase>;
+        const CalendarIcon = (props) => <IconBase {...props}><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></IconBase>;
+        const ExternalLink = (props) => <IconBase {...props}><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></IconBase>;
+        const X = (props) => <IconBase {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></IconBase>;
+        const Moon = (props) => <IconBase {...props}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></IconBase>;
+        const Sun = (props) => <IconBase {...props}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></IconBase>;
+        const Layers = (props) => <IconBase {...props}><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></IconBase>;
+        const Github = (props) => <IconBase {...props}><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></IconBase>;
+        const Download = (props) => <IconBase {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></IconBase>;
+        const ShareIcon = (props) => <IconBase {...props}><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></IconBase>;
+        const PlusSquare = (props) => <IconBase {...props}><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 12h8"/><path d="M12 8v8"/></IconBase>;
+
+        // ==========================================
+        //  班表邏輯核心
+        // ==========================================
+
+        const shiftListLegacy = [
+            ["中", 1], ["中", 2], ["中", 3], ["中", 4], ["中", 5],
+            ["休", 0],
+            ["早", 1], ["早", 2], ["早", 3], ["早", 4], ["早", 5],
+            ["休", 0], ["休", 0],
+            ["夜", 1], ["夜", 2], ["夜", 3], ["夜", 4], ["夜", 5],
+            ["休", 0], ["休", 0]
+        ];
+
+        const partShiftStarts = { 'A': 18, 'B': 3, 'C': 8, 'D': 13 };
+
+        function getOrdinalDate(date) {
+            const utcDate = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+            return Math.floor(utcDate / 86400000);
+        }
+
+        function getLegacyShift(date, group) {
+            const shiftIndex = partShiftStarts[group];
+            const ordinalDate = getOrdinalDate(date);
+            // Modified: Removed "+ 1" to fix shift offset error
+            const nList = (ordinalDate + shiftIndex + 200000) % 20;
+            return shiftListLegacy[nList];
+        }
+
+        function getEFGShift(date, group) {
+            const baseDate = new Date(Date.UTC(2026, 0, 26));
+            const targetDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+
+            const dayOfWeek = targetDate.getUTCDay(); // 0 = Sun, 1 = Mon ...
+            const diffToMon = (dayOfWeek + 6) % 7;
+            
+            const targetMonday = new Date(targetDate);
+            targetMonday.setUTCDate(targetDate.getUTCDate() - diffToMon);
+
+            const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+            const diffWeeks = Math.floor((targetMonday.getTime() - baseDate.getTime()) / msPerWeek);
+
+            let cycle = diffWeeks % 3;
+            if (cycle < 0) cycle += 3;
+
+            const patterns = {
+                'E': ['中', '早', '夜'],
+                'F': ['早', '夜', '中'],
+                'G': ['夜', '中', '早']
+            };
+
+            const shiftType = patterns[group][cycle];
+            let isWorkDay = false;
+
+            if (shiftType === '中') {
+                if (dayOfWeek >= 1 && dayOfWeek <= 5) isWorkDay = true;
+            } else if (shiftType === '早') {
+                if (dayOfWeek >= 1 && dayOfWeek <= 6) isWorkDay = true;
+            } else if (shiftType === '夜') {
+                // EFG Night Shift is Tue-Sat (2-6)
+                if (dayOfWeek >= 2 && dayOfWeek <= 6) isWorkDay = true;
+            }
+
+            return isWorkDay ? [shiftType, 1] : ["休", 0];
+        }
+
+        function getShiftInfo(date, group) {
+            if (['A', 'B', 'C', 'D'].includes(group)) return getLegacyShift(date, group);
+            return getEFGShift(date, group);
+        }
+
+        const SHIFT_STYLES = {
+            '早': 'bg-[#9dd7db] text-[#005f6b] dark:bg-[#005f6b] dark:text-[#9dd7db] border border-[#005f6b]/20',
+            '中': 'bg-[#ceb98d] text-[#5c450a] dark:bg-[#5c450a] dark:text-[#ceb98d] border border-[#5c450a]/20',
+            '夜': 'bg-[#c6a1cf] text-[#4a1f5c] dark:bg-[#4a1f5c] dark:text-[#c6a1cf] border border-[#4a1f5c]/20',
+            '休': 'bg-transparent'
+        };
+
+        const SHIFT_FULL_NAMES = { "中": "中班", "休": "休", "早": "早班", "夜": "夜班" };
+        const GROUPS_LEGACY = ['A', 'B', 'C', 'D'];
+        const GROUPS_NEW = ['E', 'F', 'G'];
+
+        // ==========================================
+        //  UI Components
+        // ==========================================
+
+        const Modal = ({ isOpen, onClose, date, selectedGroups, holidayInfo }) => {
+            if (!isOpen || !date) return null;
+
+            const groupsToShow = selectedGroups.length > 0 ? selectedGroups : [...GROUPS_LEGACY, ...GROUPS_NEW];
+            const order = [...GROUPS_LEGACY, ...GROUPS_NEW];
+            groupsToShow.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+            
+            const weekDayStr = ["日", "一", "二", "三", "四", "五", "六"][date.getDay()];
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}>
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden transform transition-all scale-100 border dark:border-slate-700" onClick={e => e.stopPropagation()}>
+                        <div className="bg-gradient-to-r from-slate-700 to-slate-800 dark:from-slate-900 dark:to-slate-800 p-4 text-white">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="font-bold text-lg">{date.getMonth() + 1}月{date.getDate()}日 (週{weekDayStr})</h3>
+                                    {/* Holiday Subtitle */}
+                                    {holidayInfo && (
+                                        <p className="text-red-300 text-sm mt-1 font-medium bg-white/10 inline-block px-2 py-0.5 rounded">
+                                            {holidayInfo.description}
+                                        </p>
+                                    )}
+                                </div>
+                                <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors -mr-1 -mt-1"><X size={20} /></button>
+                            </div>
+                        </div>
+                        <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+                            {groupsToShow.map(group => {
+                                const [shiftName] = getShiftInfo(date, group);
+                                const fullShiftName = SHIFT_FULL_NAMES[shiftName] || shiftName;
+                                
+                                let textColor = "text-gray-400 dark:text-gray-500"; 
+                                if (shiftName === '早') textColor = "text-[#005f6b] dark:text-[#4fd1c5] font-bold";
+                                if (shiftName === '中') textColor = "text-[#5c450a] dark:text-[#f6e05e] font-bold";
+                                if (shiftName === '夜') textColor = "text-[#4a1f5c] dark:text-[#d6bcfa] font-bold";
+
+                                return (
+                                    <div key={group} className="flex justify-between items-center border-b border-gray-100 dark:border-slate-700 pb-2 last:border-0">
+                                        <span className="font-medium text-gray-700 dark:text-gray-300 w-12">{group} 股</span>
+                                        <span className={`flex-1 text-right ${textColor}`}>{fullShiftName}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const InstallModal = ({ isOpen, onClose }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}>
+                    <div className="bg-white dark:bg-slate-800 rounded-t-2xl md:rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100 border dark:border-slate-700 animate-slide-up" onClick={e => e.stopPropagation()}>
+                        <div className="p-6 space-y-4">
+                            <div className="flex justify-between items-start">
+                                <h3 className="text-xl font-bold text-slate-800 dark:text-white">安裝到主畫面</h3>
+                                <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X size={24}/></button>
+                            </div>
+                            <p className="text-slate-600 dark:text-slate-300">
+                                將班表安裝到主畫面，享受全螢幕與離線瀏覽體驗！
+                            </p>
+                            <div className="space-y-4 pt-2">
+                                <div className="flex items-center gap-4">
+                                    <span className="flex-none w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-700 rounded-full font-bold text-slate-600 dark:text-slate-300">1</span>
+                                    <span className="text-slate-700 dark:text-slate-200">點擊瀏覽器下方的 <span className="inline-flex align-middle mx-1"><ShareIcon size={18} /></span> 分享按鈕</span>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <span className="flex-none w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-700 rounded-full font-bold text-slate-600 dark:text-slate-300">2</span>
+                                    <span className="text-slate-700 dark:text-slate-200">向下滑動並選擇 <span className="inline-flex align-middle mx-1 font-bold">加入主畫面 <PlusSquare size={16} className="ml-1"/></span></span>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <span className="flex-none w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-700 rounded-full font-bold text-slate-600 dark:text-slate-300">3</span>
+                                    <span className="text-slate-700 dark:text-slate-200">點擊右上角的「加入」即可完成</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-slate-900/50 p-4 text-center">
+                            <button onClick={onClose} className="text-blue-600 dark:text-blue-400 font-bold text-sm">我知道了</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const App = () => {
+            const [currentDate, setCurrentDate] = useState(() => {
+                const now = new Date();
+                return new Date(now.getFullYear(), now.getMonth(), 1);
+            });
+            const [selectedGroups, setSelectedGroups] = useState(['A']);
+            const [modalData, setModalData] = useState({ isOpen: false, date: null });
+            const [isDarkMode, setIsDarkMode] = useState(false);
+            const [controlScale, setControlScale] = useState(1);
+            const [contentHeight, setContentHeight] = useState('auto');
+            
+            // Holidays State
+            const [holidayMap, setHolidayMap] = useState({});
+
+            // PWA States
+            const [installPrompt, setInstallPrompt] = useState(null);
+            const [showInstallModal, setShowInstallModal] = useState(false);
+            const [isIOS, setIsIOS] = useState(false);
+            const [isStandalone, setIsStandalone] = useState(false);
+            
+            const contentRef = useRef(null);
+            const headerWrapperRef = useRef(null);
+
+            useEffect(() => {
+                try {
+                    const savedGroups = localStorage.getItem('shift_selected_groups');
+                    if (savedGroups) setSelectedGroups(JSON.parse(savedGroups));
+                    
+                    const savedTheme = localStorage.getItem('shift_theme_mode');
+                    if (savedTheme === 'dark') setIsDarkMode(true);
+                    else if (savedTheme === 'light') setIsDarkMode(false);
+                    else if (window.matchMedia('(prefers-color-scheme: dark)').matches) setIsDarkMode(true);
+                } catch (e) {}
+            }, []);
+
+            // Holiday Fetcher
+            useEffect(() => {
+                const fetchHolidays = async (year) => {
+                    const cacheKey = `holidays_${year}`;
+                    const cached = localStorage.getItem(cacheKey);
+                    
+                    if (cached) {
+                        try {
+                            const data = JSON.parse(cached);
+                            // Merge into map: key = YYYYMMDD
+                            setHolidayMap(prev => {
+                                const newMap = { ...prev };
+                                data.forEach(h => newMap[h.date] = h);
+                                return newMap;
+                            });
+                            return; // Use cache if available
+                        } catch(e) {}
+                    }
+
+                    try {
+                        const res = await fetch(`https://cdn.jsdelivr.net/gh/ruyut/TaiwanCalendar/data/${year}.json`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            localStorage.setItem(cacheKey, JSON.stringify(data));
+                            setHolidayMap(prev => {
+                                const newMap = { ...prev };
+                                data.forEach(h => newMap[h.date] = h);
+                                return newMap;
+                            });
+                        }
+                    } catch (e) {
+                        console.error("Failed to fetch holidays", e);
+                    }
+                };
+
+                fetchHolidays(currentDate.getFullYear());
+            }, [currentDate.getFullYear()]); // Refetch when year changes
+
+            // PWA Logic
+            useEffect(() => {
+                const checkStandalone = () => {
+                    return window.matchMedia('(display-mode: standalone)').matches || 
+                           window.navigator.standalone === true;
+                };
+                setIsStandalone(checkStandalone());
+
+                const handleBeforeInstallPrompt = (e) => {
+                    e.preventDefault();
+                    setInstallPrompt(e);
+                };
+                window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+                const userAgent = window.navigator.userAgent.toLowerCase();
+                const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
+                setIsIOS(isIosDevice);
+
+                return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+            }, []);
+
+            const handleInstallClick = () => {
+                if (installPrompt) {
+                    installPrompt.prompt();
+                    installPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') {
+                            setInstallPrompt(null);
+                        }
+                    });
+                } else if (isIOS && !isStandalone) {
+                    setShowInstallModal(true);
+                }
+            };
+
+            // Scale Calculation
+            useEffect(() => {
+                if (!headerWrapperRef.current) return;
+
+                const resizeObserver = new ResizeObserver((entries) => {
+                    for (const entry of entries) {
+                        const availableWidth = entry.contentRect.width;
+                        const minWidth = 480;
+                        if (availableWidth < minWidth && availableWidth > 0) {
+                            setControlScale((availableWidth / minWidth) * 1.2);
+                        } else {
+                            setControlScale(1);
+                        }
+                    }
+                });
+                resizeObserver.observe(headerWrapperRef.current);
+                return () => resizeObserver.disconnect();
+            }, []); 
+
+            // Height Adjustment
+            useLayoutEffect(() => {
+                if (contentRef.current) {
+                    if (controlScale < 1) {
+                        const unscaledHeight = contentRef.current.offsetHeight;
+                        setContentHeight(`${unscaledHeight * controlScale}px`);
+                    } else {
+                        setContentHeight('auto');
+                    }
+                }
+            }, [controlScale, currentDate, selectedGroups, isDarkMode]);
+
+            const updateGroups = (newGroups) => {
+                const order = [...GROUPS_LEGACY, ...GROUPS_NEW];
+                newGroups.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+                setSelectedGroups(newGroups);
+                localStorage.setItem('shift_selected_groups', JSON.stringify(newGroups));
+            };
+
+            const handleGroupChange = (group) => {
+                const newGroups = selectedGroups.includes(group) 
+                    ? selectedGroups.filter(g => g !== group) 
+                    : [...selectedGroups, group];
+                updateGroups(newGroups);
+            };
+
+            const toggleGroupSet = (groupSet) => {
+                const allSelected = groupSet.every(g => selectedGroups.includes(g));
+                let newGroups;
+                if (allSelected) {
+                    newGroups = selectedGroups.filter(g => !groupSet.includes(g));
+                } else {
+                    const toAdd = groupSet.filter(g => !selectedGroups.includes(g));
+                    newGroups = [...selectedGroups, ...toAdd];
+                }
+                updateGroups(newGroups);
+            };
+
+            const toggleDarkMode = () => {
+                setIsDarkMode(prev => {
+                    const newVal = !prev;
+                    localStorage.setItem('shift_theme_mode', newVal ? 'dark' : 'light');
+                    return newVal;
+                });
+            };
+
+            const handleMonthChange = (e) => {
+                const [y, m] = e.target.value.split('-');
+                setCurrentDate(new Date(parseInt(y), parseInt(m) - 1, 1));
+            };
+
+            const addMonth = (offset) => {
+                setCurrentDate(prev => {
+                    return new Date(prev.getFullYear(), prev.getMonth() + offset, 1);
+                });
+            };
+
+            const resetToToday = () => {
+                const now = new Date();
+                setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
+            };
+
+            const calendarData = useMemo(() => {
+                const year = currentDate.getFullYear();
+                const month = currentDate.getMonth();
+                const firstDay = new Date(year, month, 1);
+                const lastDay = new Date(year, month + 1, 0);
+                
+                const startPadding = firstDay.getDay(); 
+                const totalDays = lastDay.getDate();
+                
+                const cells = [];
+                for (let i = 0; i < startPadding; i++) cells.push(null);
+                for (let i = 1; i <= totalDays; i++) cells.push(new Date(year, month, i));
+                const endPadding = (7 - (cells.length % 7)) % 7;
+                for (let i = 0; i < endPadding; i++) cells.push(null);
+
+                return cells;
+            }, [currentDate]);
+
+            const shiftSegments = useMemo(() => {
+                const segments = []; 
+                if (selectedGroups.length === 0) return segments;
+
+                selectedGroups.forEach((group, groupIndex) => {
+                    let currentShift = null;
+                    let startIndex = -1;
+                    let length = 0;
+
+                    calendarData.forEach((date, index) => {
+                        const isStartOfWeek = (index % 7 === 0);
+                        
+                        if (!date) {
+                            if (currentShift) {
+                                segments.push({ startIndex, length, group, shiftName: currentShift, rowIndex: groupIndex });
+                                currentShift = null;
+                                length = 0;
+                            }
+                            return;
+                        }
+
+                        const [shiftName] = getShiftInfo(date, group);
+
+                        if (isStartOfWeek || shiftName !== currentShift || shiftName === '休') {
+                            if (currentShift) {
+                                segments.push({ startIndex, length, group, shiftName: currentShift, rowIndex: groupIndex });
+                            }
+                            if (shiftName !== '休') {
+                                currentShift = shiftName;
+                                startIndex = index;
+                                length = 1;
+                            } else {
+                                currentShift = null;
+                                length = 0;
+                            }
+                        } else {
+                            length++;
+                        }
+                    });
+                    if (currentShift) segments.push({ startIndex, length, group, shiftName: currentShift, rowIndex: groupIndex });
+                });
+                return segments;
+            }, [calendarData, selectedGroups]);
+
+            const cellHeight = Math.max(100, 36 + (selectedGroups.length * 26) + 15);
+            const monthInputValue = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+            const currentYear = new Date().getFullYear();
+            const startYear = 2024;
+            const displayYear = currentYear > startYear ? `${startYear}-${currentYear}` : `${startYear}`;
+
+            return (
+                <div className={isDarkMode ? "dark" : ""}>
+                    <div className="min-h-screen bg-slate-100 dark:bg-slate-900 p-2 md:p-4 font-sans text-slate-800 dark:text-slate-100 transition-colors duration-200 flex flex-col">
+                        <div className="max-w-4xl mx-auto space-y-6 w-full flex-grow">
+                            
+                            {/* Header Control Panel */}
+                            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 transition-colors duration-200 overflow-hidden p-2 md:p-6">
+                                <div 
+                                    ref={headerWrapperRef}
+                                    className="w-full flex justify-center origin-top transition-transform duration-200"
+                                    style={{ 
+                                        height: contentHeight
+                                    }}
+                                >
+                                    <div 
+                                        style={{
+                                            width: controlScale < 1 ? '480px' : '100%',
+                                            transform: controlScale < 1 ? `scale(${controlScale})` : 'none',
+                                            transformOrigin: 'top center',
+                                        }}
+                                    >
+                                        <div ref={contentRef}>
+                                            <div className="flex flex-row justify-between items-center gap-4 mb-6 whitespace-nowrap">
+                                                <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                                    <CalendarIcon className="text-slate-600 dark:text-slate-300" />
+                                                    中鋼班表查詢
+                                                </h1>
+                                                
+                                                <div className="flex items-center gap-2">
+                                                    {((installPrompt) || (isIOS && !isStandalone)) && (
+                                                        <button 
+                                                            onClick={handleInstallClick}
+                                                            className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-bold shadow-md animate-bounce-slow"
+                                                            title="安裝到主畫面"
+                                                        >
+                                                            <Download size={16} /> <span className="hidden sm:inline">安裝</span>
+                                                        </button>
+                                                    )}
+
+                                                    <button 
+                                                        onClick={toggleDarkMode}
+                                                        className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                                        title="切換深色模式"
+                                                    >
+                                                        {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                                                    </button>
+                                                    <a href="./schedule.html" className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors text-sm font-medium">
+                                                        <ExternalLink size={16} /> 請假查詢系統
+                                                    </a>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-col gap-4">
+                                                <div className="flex flex-nowrap whitespace-nowrap items-center justify-center gap-3 bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg border border-slate-100 dark:border-slate-700/50">
+                                                    <button onClick={() => addMonth(-1)} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-colors"><ChevronLeft size={20} /></button>
+                                                    <input 
+                                                        type="month" 
+                                                        value={monthInputValue} 
+                                                        onChange={handleMonthChange} 
+                                                        className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 dark:text-slate-200" 
+                                                    />
+                                                    <button onClick={() => addMonth(1)} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-colors"><ChevronRight size={20} /></button>
+                                                    <button onClick={resetToToday} className="ml-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors shadow-sm whitespace-nowrap">回到今天</button>
+                                                </div>
+
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <div className="flex flex-nowrap whitespace-nowrap justify-center items-center gap-2 p-2 rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors w-full">
+                                                        <button 
+                                                            onClick={() => toggleGroupSet(GROUPS_LEGACY)}
+                                                            className="flex items-center gap-1 px-2 py-1 bg-slate-200 dark:bg-slate-700 text-xs font-bold rounded hover:bg-slate-300 dark:hover:bg-slate-600 mr-2 text-slate-700 dark:text-slate-200 whitespace-nowrap"
+                                                            title="全選/取消 4班3輪"
+                                                        >
+                                                            <Layers size={14} /> 4班3輪
+                                                        </button>
+                                                        {GROUPS_LEGACY.map(g => (
+                                                            <label key={g} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer transition-all border select-none text-sm ${selectedGroups.includes(g) ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 font-bold shadow-sm' : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
+                                                                <input type="checkbox" checked={selectedGroups.includes(g)} onChange={() => handleGroupChange(g)} className="hidden" />
+                                                                <span>{g} 股</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                    
+                                                    <div className="w-full h-px bg-slate-100 dark:bg-slate-700"></div>
+
+                                                    <div className="flex flex-nowrap whitespace-nowrap justify-center items-center gap-2 p-2 rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors w-full">
+                                                        <button 
+                                                            onClick={() => toggleGroupSet(GROUPS_NEW)}
+                                                            className="flex items-center gap-1 px-2 py-1 bg-slate-200 dark:bg-slate-700 text-xs font-bold rounded hover:bg-slate-300 dark:hover:bg-slate-600 mr-2 text-slate-700 dark:text-slate-200 whitespace-nowrap"
+                                                            title="全選/取消 3班3輪"
+                                                        >
+                                                            <Layers size={14} /> 3班3輪
+                                                        </button>
+                                                        {GROUPS_NEW.map(g => (
+                                                            <label key={g} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer transition-all border select-none text-sm ${selectedGroups.includes(g) ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-700 dark:text-green-300 font-bold shadow-sm' : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
+                                                                <input type="checkbox" checked={selectedGroups.includes(g)} onChange={() => handleGroupChange(g)} className="hidden" />
+                                                                <span>{g} 股</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Calendar Grid Container */}
+                            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-200">
+                                {/* Header Row */}
+                                <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
+                                    {["日", "一", "二", "三", "四", "五", "六"].map((d, i) => (
+                                        <div key={i} className={`py-3 text-center font-bold text-sm ${i === 0 ? 'text-red-500 dark:text-red-400' : i === 6 ? 'text-blue-500 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'}`}>{d}</div>
+                                    ))}
+                                </div>
+
+                                {/* Content Row */}
+                                <div className="relative border-l border-t border-slate-100 dark:border-slate-700">
+                                    
+                                    {/* Background Grid */}
+                                    <div className="grid grid-cols-7 divide-x divide-y divide-slate-100 dark:divide-slate-700 bg-slate-200 dark:bg-slate-900 gap-px">
+                                        {calendarData.map((date, idx) => {
+                                            if (!date) return <div key={idx} className="bg-slate-50/50 dark:bg-slate-800/50" style={{ height: cellHeight }}></div>;
+                                            const isToday = new Date().toDateString() === date.toDateString();
+                                            
+                                            // Holiday Logic
+                                            const dateKey = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+                                            const holidayInfo = holidayMap[dateKey];
+                                            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                                            
+                                            // 判斷順序：
+                                            // 1. 如果有假日資料，且 isHoliday 為 true -> 紅字
+                                            // 2. 如果有假日資料，且 isHoliday 為 false (補班日) -> 正常色 (黑/白)
+                                            // 3. 如果沒有資料 (例如資料庫未更新)，則維持週六日紅字
+                                            let isRedDay = false;
+                                            if (holidayInfo) {
+                                                if (holidayInfo.isHoliday) isRedDay = true;
+                                            } else {
+                                                if (isWeekend) isRedDay = true;
+                                            }
+
+                                            return (
+                                                <div 
+                                                    key={idx} 
+                                                    className="bg-white dark:bg-slate-800 relative hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer group"
+                                                    style={{ height: cellHeight }}
+                                                    onClick={() => setModalData({ isOpen: true, date, holidayInfo })} // Pass holiday info
+                                                >
+                                                    <div className="absolute top-2 right-2 z-10">
+                                                        <span className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium ${isToday ? 'bg-blue-600 text-white shadow-md' : isRedDay ? 'text-red-500 dark:text-red-400 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                            {date.getDate()}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Overlay Layer (Shift Segments) */}
+                                    <div className="absolute inset-0 grid grid-cols-7 gap-px border-l border-t border-transparent pointer-events-none"> 
+                                        {calendarData.map((date, idx) => {
+                                            const startingSegments = shiftSegments.filter(s => s.startIndex === idx);
+                                            
+                                            return (
+                                                <div key={idx} className="relative w-full" style={{ height: cellHeight }}>
+                                                    {startingSegments.map((seg, i) => {
+                                                        const topCalc = `${36 + (seg.rowIndex * 26)}px`;
+                                                        
+                                                        // EFG logic changed, removing special offset visual
+                                                        const widthCalc = `calc(${seg.length * 100}% + ${seg.length - 1}px - 4px)`;
+
+                                                        return (
+                                                            <div
+                                                                key={`${idx}-${i}`}
+                                                                className={`absolute h-[24px] rounded px-1 flex items-center gap-1 shadow-sm border border-opacity-50 dark:border-opacity-30 z-20 transition-colors duration-200 ${SHIFT_STYLES[seg.shiftName]}`}
+                                                                style={{ 
+                                                                    left: '2px',
+                                                                    width: widthCalc,
+                                                                    top: topCalc,
+                                                                    pointerEvents: 'none'
+                                                                }}
+                                                            >
+                                                                <span className="text-[10px] font-bold opacity-80 min-w-[12px]">{seg.group}</span>
+                                                                <span className="text-xs font-medium truncate">{SHIFT_FULL_NAMES[seg.shiftName]}</span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <footer className="text-center text-slate-400 dark:text-slate-500 text-sm py-4 mt-auto">
+                            <p className="flex items-center justify-center gap-1">
+                                {displayYear} &copy; longping. CSC Shift System.
+                                <a href="https://github.com/longping1950/CSC-shift" className="ml-4 hover:text-blue-500 transition-colors" title="View on GitHub">
+                                    <Github size={16} />
+                                </a>
+                            </p>
+                        </footer>
+
+                        <Modal isOpen={modalData.isOpen} onClose={() => setModalData({ ...modalData, isOpen: false })} date={modalData.date} selectedGroups={selectedGroups} holidayInfo={modalData.holidayInfo} />
+                        <InstallModal isOpen={showInstallModal} onClose={() => setShowInstallModal(false)} />
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('SW registered: ', registration);
+                        
+                        // Listen for SW updates to force reload and prevent white screen
+                        navigator.serviceWorker.addEventListener('controllerchange', () => {
+                            window.location.reload();
+                        });
+                    })
+                    .catch(registrationError => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>

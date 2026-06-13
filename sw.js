@@ -1,15 +1,11 @@
 const CACHE_NAME = 'csc-shift-v2';
 // 使用相對路徑 ./ 以相容 GitHub Pages 子目錄
 const urlsToCache = [
-  './shift.html',
-  './schedule.html',
+  './index.html',
   './manifest.json',
   './web/favicon.ico',
   './web/icon-192.png',
   './web/icon-512.png',
-  'https://unpkg.com/react@18/umd/react.production.min.js',
-  'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
-  'https://unpkg.com/@babel/standalone/babel.min.js',
   'https://cdn.tailwindcss.com'
 ];
 
