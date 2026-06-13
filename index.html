@@ -1,10 +1,554 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
-    <meta http-equiv="refresh" content="0; url=shift.html">
-    <title>正在導向...</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>中鋼班表與加班查詢系統</title>
+    
+    <link rel="icon" href="./web/favicon.ico">
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#1e293b">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        @keyframes slide-up { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-slide-up { animation: slide-up 0.3s ease-out forwards; }
+        input[type="month"]::-webkit-calendar-picker-indicator, input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.6; }
+        .dark input[type="month"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+    </style>
 </head>
-<body>
-    <p>如果網頁沒有自動跳轉，請點擊 <a href="shift.html">這裡</a>。</p>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-200 overflow-x-hidden">
+    
+    <div id="app-root" class="min-h-screen flex flex-col p-2 md:p-4"></div>
+
+    <script>
+        /** ==========================================
+         * 模組 1：共用圖示 (Icons)
+         * ========================================== */
+        const Icons = {
+            ChevronLeft: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>`,
+            ChevronRight: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`,
+            Calendar: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>`,
+            Clock: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+            Sun: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`,
+            Moon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
+            Monitor: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>`,
+            Layers: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>`,
+            X: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`
+        };
+
+        /** ==========================================
+         * 模組 2：班表核心邏輯 (Data & Logic)
+         * ========================================== */
+        const ShiftLogic = {
+            LEGACY_CYCLE: [
+                { shift: "中", seq: 1, max: 5, a1: "+2/+3", a2: "" },
+                { shift: "中", seq: 2, max: 5, a1: "+2",    a2: "+1/+3" },
+                { shift: "中", seq: 3, max: 5, a1: "+1/+2", a2: "" },
+                { shift: "中", seq: 4, max: 5, a1: "+3",    a2: "+1/+2" },
+                { shift: "中", seq: 5, max: 5, a1: "+3",    a2: "+1/+2" },
+                { shift: "休", seq: 1, max: 1, a1: "",      a2: "" },
+                { shift: "早", seq: 1, max: 5, a1: "+1",    a2: "+2/+3" },
+                { shift: "早", seq: 2, max: 5, a1: "+1",    a2: "+2/+3" },
+                { shift: "早", seq: 3, max: 5, a1: "+2",    a2: "+1/+3" },
+                { shift: "早", seq: 4, max: 5, a1: "+2",    a2: "+1/+3" },
+                { shift: "早", seq: 5, max: 5, a1: "+1/+2", a2: "" },
+                { shift: "休", seq: 1, max: 2, a1: "",      a2: "" },
+                { shift: "休", seq: 2, max: 2, a1: "",      a2: "" },
+                { shift: "夜", seq: 1, max: 5, a1: "+1",    a2: "" },
+                { shift: "夜", seq: 2, max: 5, a1: "+1",    a2: "" },
+                { shift: "夜", seq: 3, max: 5, a1: "+1",    a2: "" },
+                { shift: "夜", seq: 4, max: 5, a1: "+3",    a2: "" },
+                { shift: "夜", seq: 5, max: 5, a1: "+3",    a2: "" },
+                { shift: "休", seq: 1, max: 2, a1: "",      a2: "" },
+                { shift: "休", seq: 2, max: 2, a1: "",      a2: "" }
+            ],
+            LEGACY_STARTS: { 'A': 18, 'B': 3, 'C': 8, 'D': 13 },
+
+            EFG_CYCLE: [
+                { shift: "中", seq: 1, max: 5 }, { shift: "中", seq: 2, max: 5 }, { shift: "中", seq: 3, max: 5 }, { shift: "中", seq: 4, max: 5 }, { shift: "中", seq: 5, max: 5 },
+                { shift: "休", seq: 1, max: 2 }, { shift: "休", seq: 2, max: 2 }, 
+                { shift: "早", seq: 1, max: 6 }, { shift: "早", seq: 2, max: 6 }, { shift: "早", seq: 3, max: 6 }, { shift: "早", seq: 4, max: 6 }, { shift: "早", seq: 5, max: 6 }, { shift: "早", seq: 6, max: 6 },
+                { shift: "休", seq: 1, max: 1 }, 
+                { shift: "休", seq: 1, max: 1 }, { shift: "夜", seq: 1, max: 5 }, { shift: "夜", seq: 2, max: 5 }, { shift: "夜", seq: 3, max: 5 }, { shift: "夜", seq: 4, max: 5 }, { shift: "夜", seq: 5, max: 5 },
+                { shift: "休", seq: 1, max: 1 }  
+            ],
+            EFG_OFFSETS: { 'E': 0, 'F': 7, 'G': 14 },
+            EFG_BASE_DATE_UTC: Date.UTC(2026, 0, 26),
+
+            getShiftObj(date, group) {
+                const targetUTC = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+                if (['A', 'B', 'C', 'D'].includes(group)) {
+                    const ordinalDate = Math.floor(targetUTC / 86400000);
+                    const index = (ordinalDate + this.LEGACY_STARTS[group] + 200000) % 20;
+                    return this.LEGACY_CYCLE[index];
+                } else {
+                    const dayDiff = Math.floor((targetUTC - this.EFG_BASE_DATE_UTC) / 86400000);
+                    let index = (dayDiff + this.EFG_OFFSETS[group]) % 21;
+                    if (index < 0) index += 21;
+                    return this.EFG_CYCLE[index];
+                }
+            },
+
+            decodeAgent(group, offsetStr) {
+                if (!offsetStr) return "-";
+                const groups = ['A', 'B', 'C', 'D'];
+                const baseIdx = groups.indexOf(group);
+                return offsetStr.split('/').map(off => {
+                    const shiftAmt = parseInt(off.replace('+', ''));
+                    return groups[(baseIdx + shiftAmt) % 4];
+                }).join('/');
+            },
+
+            getAgentInfo(date, group) {
+                const shiftObj = this.getShiftObj(date, group);
+                if (['E','F','G'].includes(group) || shiftObj.shift === '休') {
+                    return { full: "-", half: "-" };
+                }
+                return {
+                    full: this.decodeAgent(group, shiftObj.a1),
+                    half: this.decodeAgent(group, shiftObj.a2)
+                };
+            },
+
+            STYLES: {
+                '早': 'bg-[#9dd7db] text-[#005f6b] dark:bg-[#005f6b] dark:text-[#9dd7db] border border-[#005f6b]/20',
+                '中': 'bg-[#ceb98d] text-[#5c450a] dark:bg-[#5c450a] dark:text-[#ceb98d] border border-[#5c450a]/20',
+                '夜': 'bg-[#c6a1cf] text-[#4a1f5c] dark:bg-[#4a1f5c] dark:text-[#c6a1cf] border border-[#4a1f5c]/20',
+                '休': 'bg-transparent text-slate-400'
+            }
+        };
+
+        /** ==========================================
+         * 模組 3：狀態管理與渲染引擎 (State & App)
+         * ========================================== */
+        const State = {
+            view: localStorage.getItem('shift_current_view') || 'shift',
+            theme: localStorage.getItem('shift_theme_mode') || 'system',
+            shiftMonthDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1), // 預設當月
+            selectedGroups: JSON.parse(localStorage.getItem('shift_selected_groups')) || ['A', 'B', 'C', 'D'],
+            scheduleStartDate: new Date(), // 預設當天
+            selectedScheduleGroup: localStorage.getItem('partMemory') || 'A',
+            modal: { isOpen: false, type: '', data: null }
+        };
+
+        const App = {
+            init() {
+                this.applyTheme();
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                    if (State.theme === 'system') this.applyTheme();
+                });
+                this.render();
+            },
+
+            applyTheme() {
+                let isDark = false;
+                if (State.theme === 'system') {
+                    isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                } else {
+                    isDark = State.theme === 'dark';
+                }
+                document.documentElement.classList.toggle('dark', isDark);
+            },
+
+            handleAction(action, payload) {
+                switch(action) {
+                    case 'toggle-theme':
+                        const nextTheme = { 'system': 'light', 'light': 'dark', 'dark': 'system' };
+                        State.theme = nextTheme[State.theme];
+                        localStorage.setItem('shift_theme_mode', State.theme);
+                        this.applyTheme();
+                        break;
+                    case 'change-view':
+                        State.view = payload;
+                        localStorage.setItem('shift_current_view', payload);
+                        break;
+                    
+                    // Shift View Actions
+                    case 'shift-prev-month':
+                        State.shiftMonthDate = new Date(State.shiftMonthDate.getFullYear(), State.shiftMonthDate.getMonth() - 1, 1);
+                        break;
+                    case 'shift-next-month':
+                        State.shiftMonthDate = new Date(State.shiftMonthDate.getFullYear(), State.shiftMonthDate.getMonth() + 1, 1);
+                        break;
+                    case 'shift-change-month':
+                        const [y, m] = payload.split('-');
+                        State.shiftMonthDate = new Date(parseInt(y), parseInt(m) - 1, 1);
+                        break;
+                    case 'shift-today':
+                        State.shiftMonthDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+                        break;
+                    case 'shift-toggle-group':
+                        if (State.selectedGroups.includes(payload)) {
+                            State.selectedGroups = State.selectedGroups.filter(g => g !== payload);
+                        } else {
+                            State.selectedGroups.push(payload);
+                        }
+                        State.selectedGroups.sort((a, b) => ['A','B','C','D','E','F','G'].indexOf(a) - ['A','B','C','D','E','F','G'].indexOf(b));
+                        localStorage.setItem('shift_selected_groups', JSON.stringify(State.selectedGroups));
+                        break;
+                    case 'shift-toggle-set':
+                        const groupSet = payload === 'legacy' ? ['A','B','C','D'] : ['E','F','G'];
+                        const allSelected = groupSet.every(g => State.selectedGroups.includes(g));
+                        if (allSelected) {
+                            State.selectedGroups = State.selectedGroups.filter(g => !groupSet.includes(g));
+                        } else {
+                            const toAdd = groupSet.filter(g => !State.selectedGroups.includes(g));
+                            State.selectedGroups = [...State.selectedGroups, ...toAdd];
+                        }
+                        State.selectedGroups.sort((a, b) => ['A','B','C','D','E','F','G'].indexOf(a) - ['A','B','C','D','E','F','G'].indexOf(b));
+                        localStorage.setItem('shift_selected_groups', JSON.stringify(State.selectedGroups));
+                        break;
+
+                    // Schedule View Actions
+                    case 'schedule-prev-week':
+                        State.scheduleStartDate.setDate(State.scheduleStartDate.getDate() - 7);
+                        break;
+                    case 'schedule-next-week':
+                        State.scheduleStartDate.setDate(State.scheduleStartDate.getDate() + 7);
+                        break;
+                    case 'schedule-today':
+                        State.scheduleStartDate = new Date();
+                        break;
+                    case 'schedule-change-date':
+                        State.scheduleStartDate = new Date(payload);
+                        break;
+                    case 'schedule-change-group':
+                        State.selectedScheduleGroup = payload;
+                        localStorage.setItem('partMemory', payload);
+                        break;
+
+                    case 'open-modal':
+                        State.modal = payload;
+                        break;
+                    case 'close-modal':
+                        State.modal = { isOpen: false, type: '', data: null };
+                        break;
+                }
+                this.render();
+            },
+
+            render() {
+                const root = document.getElementById('app-root');
+                root.innerHTML = `
+                    <div class="max-w-4xl mx-auto space-y-4 w-full flex-grow flex flex-col">
+                        ${this.components.Header()}
+                        <div class="flex-grow transition-opacity duration-300">
+                            ${State.view === 'shift' ? this.components.ShiftView() : this.components.ScheduleView()}
+                        </div>
+                    </div>
+                    ${this.components.Modal()}
+                `;
+            },
+
+            components: {
+                Header() {
+                    const isShift = State.view === 'shift';
+                    const isSchedule = State.view === 'schedule';
+                    
+                    let themeIcon = Icons.Monitor;
+                    if (State.theme === 'light') themeIcon = Icons.Sun;
+                    if (State.theme === 'dark') themeIcon = Icons.Moon;
+
+                    return `
+                        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+                            <div class="flex justify-between items-center gap-4">
+                                <div class="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-lg">
+                                    <button onclick="App.handleAction('change-view', 'shift')" class="flex items-center gap-2 px-4 py-2 rounded-md font-bold text-sm transition-all ${isShift ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">
+                                        ${Icons.Calendar} 全月班表
+                                    </button>
+                                    <button onclick="App.handleAction('change-view', 'schedule')" class="flex items-center gap-2 px-4 py-2 rounded-md font-bold text-sm transition-all ${isSchedule ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">
+                                        ${Icons.Clock} 加班/代理
+                                    </button>
+                                </div>
+                                <button onclick="App.handleAction('toggle-theme')" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600" title="切換顯示模式">
+                                    ${themeIcon}
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                },
+
+                ShiftView() {
+                    const year = State.shiftMonthDate.getFullYear();
+                    const month = State.shiftMonthDate.getMonth();
+                    
+                    const firstDay = new Date(year, month, 1);
+                    const lastDay = new Date(year, month + 1, 0);
+                    const startPadding = firstDay.getDay(); 
+                    const totalDays = lastDay.getDate();
+                    
+                    const cells = Array(startPadding).fill(null);
+                    for (let i = 1; i <= totalDays; i++) cells.push(new Date(year, month, i));
+                    const endPadding = (7 - (cells.length % 7)) % 7;
+                    for (let i = 0; i < endPadding; i++) cells.push(null);
+
+                    const cellHeight = Math.max(100, 36 + (State.selectedGroups.length * 26) + 15);
+
+                    const renderGridCells = () => cells.map((date, idx) => {
+                        if (!date) return `<div class="bg-slate-50/50 dark:bg-slate-800/50" style="height: ${cellHeight}px"></div>`;
+                        
+                        const isToday = date.toDateString() === new Date().toDateString();
+                        const day = date.getDay();
+                        
+                        let dateClass = 'text-slate-700 dark:text-slate-300';
+                        if (isToday) {
+                            dateClass = 'bg-blue-600 text-white shadow-md';
+                        } else if (day === 0) {
+                            dateClass = 'text-red-500 dark:text-red-400 font-bold';
+                        } else if (day === 6) {
+                            dateClass = 'text-blue-500 dark:text-blue-400 font-bold';
+                        }
+                        
+                        const modalPayload = JSON.stringify({ isOpen: true, type: 'shiftDetail', data: date.getTime() }).replace(/"/g, '&quot;');
+                        
+                        return `
+                            <div onclick="App.handleAction('open-modal', ${modalPayload})" class="bg-white dark:bg-slate-800 relative hover:bg-slate-50 dark:hover:bg-slate-700 border-r border-b border-slate-100 dark:border-slate-700 cursor-pointer" style="height: ${cellHeight}px">
+                                <div class="absolute top-2 right-2 z-10">
+                                    <span class="w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium ${dateClass}">
+                                        ${date.getDate()}
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    let segmentsHTML = '';
+                    State.selectedGroups.forEach((group, rowIdx) => {
+                        for (let i = 0; i < cells.length; i++) {
+                            const date = cells[i];
+                            if (!date) continue;
+                            
+                            const shiftObj = ShiftLogic.getShiftObj(date, group);
+                            if (shiftObj.shift === '休') continue; 
+                            
+                            const isFirstDayOfMonth = date.getDate() === 1;
+                            const isFirstDayOfWeek = (i % 7 === 0);
+                            const isFirstDayOfShift = (shiftObj.seq === 1);
+                            
+                            if (isFirstDayOfMonth || isFirstDayOfWeek || isFirstDayOfShift) {
+                                const daysToWeekEnd = 7 - (i % 7);
+                                const daysToMonthEnd = totalDays - date.getDate() + 1;
+                                const daysToShiftEnd = shiftObj.max - shiftObj.seq + 1;
+                                
+                                const length = Math.min(daysToWeekEnd, daysToMonthEnd, daysToShiftEnd);
+                                
+                                const top = 36 + (rowIdx * 26);
+                                const row = Math.floor(i / 7);
+                                const col = i % 7;
+                                
+                                const widthCalc = `calc(${length * (100 / 7)}% - 4px)`;
+                                const leftCalc = `calc(${col * (100 / 7)}% + 2px)`;
+                                const styleClass = ShiftLogic.STYLES[shiftObj.shift];
+                                
+                                segmentsHTML += `
+                                    <div class="absolute h-[24px] rounded px-1 flex items-center gap-1 shadow-sm border border-opacity-50 z-20 pointer-events-none transition-colors ${styleClass}"
+                                         style="top: ${row * cellHeight + top}px; left: ${leftCalc}; width: ${widthCalc};">
+                                        <span class="text-[10px] font-bold opacity-80 min-w-[12px]">${group}</span>
+                                        <span class="text-xs font-medium truncate">${shiftObj.shift}班</span>
+                                    </div>
+                                `;
+                                i += (length - 1); 
+                            }
+                        }
+                    });
+
+                    return `
+                        <div class="flex flex-col gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                            <!-- 上半部：月份控制 -->
+                            <div class="flex items-center justify-center gap-3">
+                                <button onclick="App.handleAction('shift-prev-month')" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md transition-colors">${Icons.ChevronLeft}</button>
+                                <input type="month" value="${year}-${String(month + 1).padStart(2, '0')}" onchange="App.handleAction('shift-change-month', this.value)" class="bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-md px-4 py-2 font-bold text-lg text-slate-700 dark:text-slate-200 cursor-pointer" />
+                                <button onclick="App.handleAction('shift-next-month')" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md transition-colors">${Icons.ChevronRight}</button>
+                                <!-- 修正: 回到今天統一顯示 "今" -->
+                                <button onclick="App.handleAction('shift-today')" class="ml-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-bold transition-colors shadow-sm">回到今天</button>
+                            </div>
+                            
+                            <!-- 下半部：股別群組按鈕 -->
+                            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 w-full border-t border-slate-100 dark:border-slate-700 pt-3">
+                                <div class="flex flex-wrap justify-center items-center gap-2">
+                                    <button onclick="App.handleAction('shift-toggle-set', 'legacy')" class="flex items-center gap-1 px-2 py-1.5 bg-slate-200 dark:bg-slate-700 text-xs font-bold rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 mr-1">${Icons.Layers} 4班3輪</button>
+                                    ${['A','B','C','D'].map(g => `
+                                        <button onclick="App.handleAction('shift-toggle-group', '${g}')" class="px-3 py-1 rounded-full border text-sm font-bold transition-colors ${State.selectedGroups.includes(g) ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300' : 'bg-white border-slate-200 text-slate-500 dark:bg-slate-700 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'}">${g} 股</button>
+                                    `).join('')}
+                                </div>
+                                <div class="hidden sm:block w-px h-6 bg-slate-200 dark:bg-slate-700"></div>
+                                <div class="flex flex-wrap justify-center items-center gap-2">
+                                    <button onclick="App.handleAction('shift-toggle-set', 'efg')" class="flex items-center gap-1 px-2 py-1.5 bg-slate-200 dark:bg-slate-700 text-xs font-bold rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 mr-1">${Icons.Layers} 3班3輪</button>
+                                    ${['E','F','G'].map(g => `
+                                        <button onclick="App.handleAction('shift-toggle-group', '${g}')" class="px-3 py-1 rounded-full border text-sm font-bold transition-colors ${State.selectedGroups.includes(g) ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300' : 'bg-white border-slate-200 text-slate-500 dark:bg-slate-700 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'}">${g} 股</button>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden mt-4">
+                            <div class="grid grid-cols-7 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
+                                ${["日", "一", "二", "三", "四", "五", "六"].map((d, i) => `
+                                    <div class="py-3 text-center font-bold text-sm ${i === 0 ? 'text-red-500 dark:text-red-400' : i === 6 ? 'text-blue-500 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'}">${d}</div>
+                                `).join('')}
+                            </div>
+                            <div class="relative border-l border-t border-slate-100 dark:border-slate-700">
+                                <div class="grid grid-cols-7 bg-slate-200 dark:bg-slate-900">
+                                    ${renderGridCells()}
+                                </div>
+                                <div class="absolute inset-0 pointer-events-none">
+                                    ${segmentsHTML}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                },
+
+                ScheduleView() {
+                    const dateObj = State.scheduleStartDate;
+                    const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+                    const group = State.selectedScheduleGroup; 
+                    
+                    const startDate = new Date(dateObj);
+                    startDate.setDate(dateObj.getDate() - dateObj.getDay());
+
+                    let scheduleData = [];
+                    for (let i = 0; i < 7; i++) {
+                        const curDate = new Date(startDate);
+                        curDate.setDate(startDate.getDate() + i);
+                        
+                        const shiftObj = ShiftLogic.getShiftObj(curDate, group);
+                        const agentInfo = ShiftLogic.getAgentInfo(curDate, group);
+
+                        scheduleData.push({
+                            date: curDate,
+                            shift: shiftObj.shift,
+                            seq: shiftObj.seq,
+                            agentFull: agentInfo.full,
+                            agentHalf: agentInfo.half
+                        });
+                    }
+
+                    return `
+                        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 mb-4">
+                            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                                <div class="flex items-center gap-3">
+                                    <input type="date" value="${dateStr}" onchange="App.handleAction('schedule-change-date', this.value)" class="bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md px-3 py-2 text-slate-700 dark:text-slate-200 font-medium" />
+                                    <select onchange="App.handleAction('schedule-change-group', this.value)" class="bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md px-3 py-2 text-slate-700 dark:text-slate-200 font-bold">
+                                        <optgroup label="4班3輪">
+                                            ${['A','B','C','D'].map(g => `<option value="${g}" ${group===g?'selected':''}>${g} 股</option>`).join('')}
+                                        </optgroup>
+                                        <optgroup label="3班3輪">
+                                            ${['E','F','G'].map(g => `<option value="${g}" ${group===g?'selected':''}>${g} 股</option>`).join('')}
+                                        </optgroup>
+                                    </select>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="App.handleAction('schedule-prev-week')" class="flex items-center gap-1 px-3 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 rounded-md text-sm font-medium transition-colors">${Icons.ChevronLeft} 上週</button>
+                                    <!-- 修正: 加班表回到今天統一顯示 "今" -->
+                                    <button onclick="App.handleAction('schedule-today')" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-bold transition-colors">回到今天</button>
+                                    <button onclick="App.handleAction('schedule-next-week')" class="flex items-center gap-1 px-3 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 rounded-md text-sm font-medium transition-colors">下週 ${Icons.ChevronRight}</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse min-w-[500px]">
+                                    <thead>
+                                        <tr class="bg-slate-100 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-sm">
+                                            <th class="px-6 py-4 border-b dark:border-slate-700 whitespace-nowrap">日期</th>
+                                            <th class="px-6 py-4 border-b dark:border-slate-700 text-center whitespace-nowrap">班別 (第n天)</th>
+                                            <th class="px-6 py-4 border-b dark:border-slate-700 text-center whitespace-nowrap">全天代理</th>
+                                            <th class="px-6 py-4 border-b dark:border-slate-700 text-center whitespace-nowrap">半天代理</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                                        ${scheduleData.map(row => {
+                                            const isToday = row.date.toDateString() === new Date().toDateString();
+                                            const dayName = ["日", "一", "二", "三", "四", "五", "六"][row.date.getDay()];
+                                            
+                                            const rowClass = isToday ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border-l-4 border-transparent';
+                                            
+                                            return `
+                                                <tr class="${rowClass} transition-colors">
+                                                    <td class="px-6 py-4 font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                                                        <div class="flex items-center gap-2">
+                                                            ${row.date.getMonth() + 1}/${row.date.getDate()} (${dayName})
+                                                            ${isToday ? `<span class="text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold">今天</span>` : ''}
+                                                        </div>
+                                                    </td>
+                                                    <td class="px-6 py-4 text-center whitespace-nowrap">
+                                                        <span class="inline-block px-3 py-1 rounded-md text-sm font-bold ${ShiftLogic.STYLES[row.shift]}">
+                                                            ${row.shift === '休' ? '休假' : row.shift + '班'} ${row.shift !== '休' ? `(第${row.seq}天)` : ''}
+                                                        </span>
+                                                    </td>
+                                                    <td class="px-6 py-4 text-center font-medium text-slate-600 dark:text-slate-400">${row.agentFull}</td>
+                                                    <td class="px-6 py-4 text-center font-medium text-slate-600 dark:text-slate-400">${row.agentHalf}</td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                },
+                
+                Modal() {
+                    if (!State.modal.isOpen) return '';
+                    
+                    if (State.modal.type === 'shiftDetail') {
+                        const date = new Date(State.modal.data);
+                        const weekDayStr = ["日", "一", "二", "三", "四", "五", "六"][date.getDay()];
+                        
+                        let rows = '';
+                        State.selectedGroups.forEach(group => {
+                            const shiftObj = ShiftLogic.getShiftObj(date, group);
+                            const agentInfo = ShiftLogic.getAgentInfo(date, group);
+                            let textColor = "text-gray-400 dark:text-gray-500"; 
+                            if (shiftObj.shift === '早') textColor = "text-[#005f6b] dark:text-[#4fd1c5] font-bold";
+                            if (shiftObj.shift === '中') textColor = "text-[#5c450a] dark:text-[#f6e05e] font-bold";
+                            if (shiftObj.shift === '夜') textColor = "text-[#4a1f5c] dark:text-[#d6bcfa] font-bold";
+
+                            rows += `
+                                <div class="border-b border-slate-100 dark:border-slate-700 py-3 last:border-0">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="font-bold text-slate-800 dark:text-slate-200">${group} 股</span>
+                                        <span class="${textColor}">${shiftObj.shift === '休' ? '休' : shiftObj.shift + '班 (第' + shiftObj.seq + '天)'}</span>
+                                    </div>
+                                    ${shiftObj.shift !== '休' && ['A','B','C','D'].includes(group) ? `
+                                        <div class="text-xs text-slate-500 dark:text-slate-400 text-right">全天: ${agentInfo.full} | 半天: ${agentInfo.half}</div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        });
+
+                        return `
+                            <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onclick="App.handleAction('close-modal')">
+                                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden transform animate-slide-up" onclick="event.stopPropagation()">
+                                    <div class="bg-slate-100 dark:bg-slate-700 p-4 border-b border-slate-200 dark:border-slate-600">
+                                        <div class="flex justify-between items-center">
+                                            <h3 class="font-bold text-lg text-slate-800 dark:text-white">${date.getMonth() + 1}月${date.getDate()}日 (週${weekDayStr})</h3>
+                                            <button onclick="App.handleAction('close-modal')" class="text-slate-400 hover:text-slate-600 dark:hover:text-white">${Icons.X}</button>
+                                        </div>
+                                    </div>
+                                    <div class="p-4 max-h-[60vh] overflow-y-auto">${rows}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    return '';
+                }
+            }
+        };
+
+        App.init();
+    </script>
 </body>
 </html>
