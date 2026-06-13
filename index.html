@@ -8,6 +8,9 @@
     <link rel="icon" href="./web/favicon.ico">
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#1e293b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="./web/icon-192.png"> 
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -22,6 +25,8 @@
         .dark ::-webkit-scrollbar-thumb { background: #475569; }
         @keyframes slide-up { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .animate-slide-up { animation: slide-up 0.3s ease-out forwards; }
+        @keyframes bounce-slow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
+        .animate-bounce-slow { animation: bounce-slow 2s infinite; }
         input[type="month"]::-webkit-calendar-picker-indicator, input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.6; }
         .dark input[type="month"]::-webkit-calendar-picker-indicator { filter: invert(1); }
     </style>
@@ -43,7 +48,10 @@
             Moon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
             Monitor: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>`,
             Layers: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>`,
-            X: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`
+            X: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`,
+            Download: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`,
+            Share: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>`,
+            PlusSquare: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>`
         };
 
         /** ==========================================
@@ -134,11 +142,13 @@
         const State = {
             view: localStorage.getItem('shift_current_view') || 'shift',
             theme: localStorage.getItem('shift_theme_mode') || 'system',
-            shiftMonthDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1), // 預設當月
+            shiftMonthDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
             selectedGroups: JSON.parse(localStorage.getItem('shift_selected_groups')) || ['A', 'B', 'C', 'D'],
-            scheduleStartDate: new Date(), // 預設當天
+            scheduleStartDate: new Date(),
             selectedScheduleGroup: localStorage.getItem('partMemory') || 'A',
-            modal: { isOpen: false, type: '', data: null }
+            modal: { isOpen: false, type: '', data: null },
+            // 新增 PWA 狀態
+            pwa: { installPrompt: null, showInstallBtn: false, isIOS: false, isStandalone: false }
         };
 
         const App = {
@@ -147,7 +157,38 @@
                 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
                     if (State.theme === 'system') this.applyTheme();
                 });
+                
+                // 初始化 PWA 偵測
+                this.initPWA();
+                
                 this.render();
+
+                // 註冊 Service Worker
+                if ('serviceWorker' in navigator) {
+                    window.addEventListener('load', () => {
+                        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW failed:', err));
+                    });
+                }
+            },
+
+            initPWA() {
+                State.pwa.isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+                State.pwa.isIOS = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+                
+                // 攔截 Android 的安裝提示
+                window.addEventListener('beforeinstallprompt', (e) => {
+                    e.preventDefault();
+                    State.pwa.installPrompt = e;
+                    if (!State.pwa.isStandalone) {
+                        State.pwa.showInstallBtn = true;
+                        this.render();
+                    }
+                });
+
+                // iOS 若未安裝，也顯示安裝按鈕（手動彈窗教學）
+                if (State.pwa.isIOS && !State.pwa.isStandalone) {
+                    State.pwa.showInstallBtn = true;
+                }
             },
 
             applyTheme() {
@@ -173,7 +214,6 @@
                         localStorage.setItem('shift_current_view', payload);
                         break;
                     
-                    // Shift View Actions
                     case 'shift-prev-month':
                         State.shiftMonthDate = new Date(State.shiftMonthDate.getFullYear(), State.shiftMonthDate.getMonth() - 1, 1);
                         break;
@@ -209,7 +249,6 @@
                         localStorage.setItem('shift_selected_groups', JSON.stringify(State.selectedGroups));
                         break;
 
-                    // Schedule View Actions
                     case 'schedule-prev-week':
                         State.scheduleStartDate.setDate(State.scheduleStartDate.getDate() - 7);
                         break;
@@ -232,6 +271,22 @@
                         break;
                     case 'close-modal':
                         State.modal = { isOpen: false, type: '', data: null };
+                        break;
+                        
+                    // PWA 安裝邏輯
+                    case 'install-pwa':
+                        if (State.pwa.installPrompt) {
+                            // Android 原生彈窗
+                            State.pwa.installPrompt.prompt();
+                            State.pwa.installPrompt.userChoice.then(res => {
+                                if (res.outcome === 'accepted') State.pwa.showInstallBtn = false;
+                                State.pwa.installPrompt = null;
+                                this.render();
+                            });
+                        } else if (State.pwa.isIOS) {
+                            // iOS 手動教學彈窗
+                            State.modal = { isOpen: true, type: 'install', data: null };
+                        }
                         break;
                 }
                 this.render();
@@ -261,18 +316,26 @@
 
                     return `
                         <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
-                            <div class="flex justify-between items-center gap-4">
-                                <div class="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-lg">
-                                    <button onclick="App.handleAction('change-view', 'shift')" class="flex items-center gap-2 px-4 py-2 rounded-md font-bold text-sm transition-all ${isShift ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">
+                            <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                                <div class="flex w-full sm:w-auto p-1 bg-slate-100 dark:bg-slate-900 rounded-lg">
+                                    <button onclick="App.handleAction('change-view', 'shift')" class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-md font-bold text-sm transition-all ${isShift ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">
                                         ${Icons.Calendar} 全月班表
                                     </button>
-                                    <button onclick="App.handleAction('change-view', 'schedule')" class="flex items-center gap-2 px-4 py-2 rounded-md font-bold text-sm transition-all ${isSchedule ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">
+                                    <button onclick="App.handleAction('change-view', 'schedule')" class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-md font-bold text-sm transition-all ${isSchedule ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}">
                                         ${Icons.Clock} 加班/代理
                                     </button>
                                 </div>
-                                <button onclick="App.handleAction('toggle-theme')" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600" title="切換顯示模式">
-                                    ${themeIcon}
-                                </button>
+                                
+                                <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+                                    ${State.pwa.showInstallBtn ? `
+                                        <button onclick="App.handleAction('install-pwa')" class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-bold shadow-md animate-bounce-slow">
+                                            ${Icons.Download} <span class="hidden sm:inline">安裝 App</span>
+                                        </button>
+                                    ` : ''}
+                                    <button onclick="App.handleAction('toggle-theme')" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600" title="切換顯示模式">
+                                        ${themeIcon}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -364,16 +427,13 @@
 
                     return `
                         <div class="flex flex-col gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                            <!-- 上半部：月份控制 -->
                             <div class="flex items-center justify-center gap-3">
                                 <button onclick="App.handleAction('shift-prev-month')" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md transition-colors">${Icons.ChevronLeft}</button>
                                 <input type="month" value="${year}-${String(month + 1).padStart(2, '0')}" onchange="App.handleAction('shift-change-month', this.value)" class="bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-md px-4 py-2 font-bold text-lg text-slate-700 dark:text-slate-200 cursor-pointer" />
                                 <button onclick="App.handleAction('shift-next-month')" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md transition-colors">${Icons.ChevronRight}</button>
-                                <!-- 修正: 回到今天統一顯示 "今" -->
                                 <button onclick="App.handleAction('shift-today')" class="ml-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-bold transition-colors shadow-sm">回到今天</button>
                             </div>
                             
-                            <!-- 下半部：股別群組按鈕 -->
                             <div class="flex flex-col sm:flex-row items-center justify-center gap-4 w-full border-t border-slate-100 dark:border-slate-700 pt-3">
                                 <div class="flex flex-wrap justify-center items-center gap-2">
                                     <button onclick="App.handleAction('shift-toggle-set', 'legacy')" class="flex items-center gap-1 px-2 py-1.5 bg-slate-200 dark:bg-slate-700 text-xs font-bold rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 mr-1">${Icons.Layers} 4班3輪</button>
@@ -450,7 +510,6 @@
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <button onclick="App.handleAction('schedule-prev-week')" class="flex items-center gap-1 px-3 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 rounded-md text-sm font-medium transition-colors">${Icons.ChevronLeft} 上週</button>
-                                    <!-- 修正: 加班表回到今天統一顯示 "今" -->
                                     <button onclick="App.handleAction('schedule-today')" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-bold transition-colors">回到今天</button>
                                     <button onclick="App.handleAction('schedule-next-week')" class="flex items-center gap-1 px-3 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 rounded-md text-sm font-medium transition-colors">下週 ${Icons.ChevronRight}</button>
                                 </div>
@@ -543,6 +602,37 @@
                             </div>
                         `;
                     }
+                    
+                    // --- iOS PWA 安裝教學彈窗 ---
+                    if (State.modal.type === 'install') {
+                        return `
+                            <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm transition-opacity" onclick="App.handleAction('close-modal')">
+                                <div class="bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform animate-slide-up" onclick="event.stopPropagation()">
+                                    <div class="p-6 space-y-4">
+                                        <div class="flex justify-between items-start">
+                                            <h3 class="text-xl font-bold text-slate-800 dark:text-white">安裝到主畫面</h3>
+                                            <button onclick="App.handleAction('close-modal')" class="text-slate-400">${Icons.X}</button>
+                                        </div>
+                                        <p class="text-slate-600 dark:text-slate-300">將班表安裝到主畫面，享受全螢幕與離線瀏覽體驗！</p>
+                                        <div class="space-y-4 pt-2">
+                                            <div class="flex items-center gap-4">
+                                                <span class="flex-none w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-700 rounded-full font-bold">1</span>
+                                                <span class="flex items-center gap-2">點擊下方 ${Icons.Share} 分享按鈕</span>
+                                            </div>
+                                            <div class="flex items-center gap-4">
+                                                <span class="flex-none w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-700 rounded-full font-bold">2</span>
+                                                <span class="flex items-center gap-1">選擇 <b>加入主畫面</b> ${Icons.PlusSquare}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-slate-50 dark:bg-slate-900/50 p-4 text-center border-t border-slate-100 dark:border-slate-700">
+                                        <button onclick="App.handleAction('close-modal')" class="text-blue-600 dark:text-blue-400 font-bold text-sm">我知道了</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
                     return '';
                 }
             }
