@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>中鋼班表與加班查詢系統</title>
     
-    <!-- 圖示改回正確的 ./web/ 路徑 -->
-    <link rel="icon" type="image/png" href="./web/icon-192.png?v=2">
-    <link rel="apple-touch-icon" href="./web/icon-192.png?v=2">
+    <link rel="icon" href="./web/favicon.ico">
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#1e293b">
+    <!-- 修正標準 meta tag -->
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="./web/icon-192.png"> 
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -19,55 +20,190 @@
         tailwind.config = { darkMode: 'class' }
     </script>
     
-    <!-- 引入共用模組 -->
-    <link rel="stylesheet" href="./shared/common.css">
-    <script src="./shared/icons.js"></script>
-    <script src="./shared/theme.js"></script>
-    <script src="./shared/shift-core.js"></script>
-    <script src="./shared/pwa-helper.js"></script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        @keyframes slide-up { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-slide-up { animation: slide-up 0.3s ease-out forwards; }
+        @keyframes bounce-slow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
+        .animate-bounce-slow { animation: bounce-slow 2s infinite; }
+        input[type="month"]::-webkit-calendar-picker-indicator, input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.6; }
+        .dark input[type="month"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+    </style>
 </head>
 <body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-200 overflow-x-hidden min-h-screen flex flex-col">
     
     <div id="app-root" class="min-h-screen flex flex-col p-2 md:p-4 flex-grow"></div>
 
     <script>
-        // 容錯防禦：若 ShiftCore 尚未定義 STYLES 則提供預設值，避免拋錯阻斷渲染
-        if (!ShiftCore.STYLES) {
-            ShiftCore.STYLES = {
+        /** ==========================================
+         * 模組 1：共用圖示 (Icons)
+         * ========================================== */
+        const Icons = {
+            ChevronLeft: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>`,
+            ChevronRight: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`,
+            Calendar: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>`,
+            Clock: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+            Sun: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`,
+            Moon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
+            Monitor: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>`,
+            Layers: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>`,
+            X: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`,
+            Download: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`,
+            Share: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>`,
+            PlusSquare: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>`
+        };
+
+        /** ==========================================
+         * 模組 2：班表核心邏輯 (Data & Logic)
+         * ========================================== */
+        const ShiftLogic = {
+            LEGACY_CYCLE: [
+                { shift: "中", seq: 1, max: 5, a1: "+2/+3", a2: "" },
+                { shift: "中", seq: 2, max: 5, a1: "+2",    a2: "+1/+3" },
+                { shift: "中", seq: 3, max: 5, a1: "+1/+2", a2: "" },
+                { shift: "中", seq: 4, max: 5, a1: "+3",    a2: "+1/+2" },
+                { shift: "中", seq: 5, max: 5, a1: "+3",    a2: "+1/+2" },
+                { shift: "休", seq: 1, max: 1, a1: "",      a2: "" },
+                { shift: "早", seq: 1, max: 5, a1: "+1",    a2: "+2/+3" },
+                { shift: "早", seq: 2, max: 5, a1: "+1",    a2: "+2/+3" },
+                { shift: "早", seq: 3, max: 5, a1: "+2",    a2: "+1/+3" },
+                { shift: "早", seq: 4, max: 5, a1: "+2",    a2: "+1/+3" },
+                { shift: "早", seq: 5, max: 5, a1: "+1/+2", a2: "" },
+                { shift: "休", seq: 1, max: 2, a1: "",      a2: "" },
+                { shift: "休", seq: 2, max: 2, a1: "",      a2: "" },
+                { shift: "夜", seq: 1, max: 5, a1: "+1",    a2: "" },
+                { shift: "夜", seq: 2, max: 5, a1: "+1",    a2: "" },
+                { shift: "夜", seq: 3, max: 5, a1: "+1",    a2: "" },
+                { shift: "夜", seq: 4, max: 5, a1: "+3",    a2: "" },
+                { shift: "夜", seq: 5, max: 5, a1: "+3",    a2: "" },
+                { shift: "休", seq: 1, max: 2, a1: "",      a2: "" },
+                { shift: "休", seq: 2, max: 2, a1: "",      a2: "" }
+            ],
+            LEGACY_STARTS: { 'A': 18, 'B': 3, 'C': 8, 'D': 13 },
+
+            EFG_CYCLE: [
+                { shift: "中", seq: 1, max: 5 }, { shift: "中", seq: 2, max: 5 }, { shift: "中", seq: 3, max: 5 }, { shift: "中", seq: 4, max: 5 }, { shift: "中", seq: 5, max: 5 },
+                { shift: "休", seq: 1, max: 2 }, { shift: "休", seq: 2, max: 2 }, 
+                { shift: "早", seq: 1, max: 6 }, { shift: "早", seq: 2, max: 6 }, { shift: "早", seq: 3, max: 6 }, { shift: "早", seq: 4, max: 6 }, { shift: "早", seq: 5, max: 6 }, { shift: "早", seq: 6, max: 6 },
+                { shift: "休", seq: 1, max: 1 }, 
+                { shift: "休", seq: 1, max: 1 }, { shift: "夜", seq: 1, max: 5 }, { shift: "夜", seq: 2, max: 5 }, { shift: "夜", seq: 3, max: 5 }, { shift: "夜", seq: 4, max: 5 }, { shift: "夜", seq: 5, max: 5 },
+                { shift: "休", seq: 1, max: 1 }  
+            ],
+            EFG_OFFSETS: { 'E': 0, 'F': 7, 'G': 14 },
+            EFG_BASE_DATE_UTC: Date.UTC(2026, 0, 26),
+
+            getShiftObj(date, group) {
+                const targetUTC = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+                if (['A', 'B', 'C', 'D'].includes(group)) {
+                    const ordinalDate = Math.floor(targetUTC / 86400000);
+                    const index = (ordinalDate + this.LEGACY_STARTS[group] + 200000) % 20;
+                    return this.LEGACY_CYCLE[index];
+                } else {
+                    const dayDiff = Math.floor((targetUTC - this.EFG_BASE_DATE_UTC) / 86400000);
+                    let index = (dayDiff + this.EFG_OFFSETS[group]) % 21;
+                    if (index < 0) index += 21;
+                    return this.EFG_CYCLE[index];
+                }
+            },
+
+            decodeAgent(group, offsetStr) {
+                if (!offsetStr) return "-";
+                const groups = ['A', 'B', 'C', 'D'];
+                const baseIdx = groups.indexOf(group);
+                return offsetStr.split('/').map(off => {
+                    const shiftAmt = parseInt(off.replace('+', ''));
+                    return groups[(baseIdx + shiftAmt) % 4];
+                }).join('/');
+            },
+
+            getAgentInfo(date, group) {
+                const shiftObj = this.getShiftObj(date, group);
+                if (['E','F','G'].includes(group) || shiftObj.shift === '休') {
+                    return { full: "-", half: "-" };
+                }
+                return {
+                    full: this.decodeAgent(group, shiftObj.a1),
+                    half: this.decodeAgent(group, shiftObj.a2)
+                };
+            },
+
+            STYLES: {
                 '早': 'bg-[#9dd7db] text-[#005f6b] dark:bg-[#005f6b] dark:text-[#9dd7db] border border-[#005f6b]/20',
                 '中': 'bg-[#ceb98d] text-[#5c450a] dark:bg-[#5c450a] dark:text-[#ceb98d] border border-[#5c450a]/20',
                 '夜': 'bg-[#c6a1cf] text-[#4a1f5c] dark:bg-[#4a1f5c] dark:text-[#c6a1cf] border border-[#4a1f5c]/20',
                 '休': 'bg-transparent text-slate-400'
-            };
-        }
+            }
+        };
 
+        /** ==========================================
+         * 模組 3：狀態管理與渲染引擎 (State & App)
+         * ========================================== */
         const State = {
             view: localStorage.getItem('shift_current_view') || 'shift',
+            theme: localStorage.getItem('shift_theme_mode') || 'system',
             shiftMonthDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
             selectedGroups: JSON.parse(localStorage.getItem('shift_selected_groups')) || ['A', 'B', 'C', 'D'],
             scheduleStartDate: new Date(),
             selectedScheduleGroup: localStorage.getItem('partMemory') || 'A',
             modal: { isOpen: false, type: '', data: null },
-            showInstallBtn: false
+            pwa: { installPrompt: null, showInstallBtn: false, isIOS: false, isStandalone: false }
         };
 
         const App = {
             init() {
-                PWAHelper.init({
-                    swPath: './sw.js',
-                    onInstallableChange: (canInstall) => {
-                        State.showInstallBtn = canInstall;
+                this.applyTheme();
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                    if (State.theme === 'system') this.applyTheme();
+                });
+                
+                this.initPWA();
+                this.render();
+
+                if ('serviceWorker' in navigator) {
+                    window.addEventListener('load', () => {
+                        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW failed:', err));
+                    });
+                }
+            },
+
+            initPWA() {
+                State.pwa.isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+                State.pwa.isIOS = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+                
+                window.addEventListener('beforeinstallprompt', (e) => {
+                    e.preventDefault();
+                    State.pwa.installPrompt = e;
+                    if (!State.pwa.isStandalone) {
+                        State.pwa.showInstallBtn = true;
                         this.render();
                     }
                 });
-                
-                this.render();
+
+                if (State.pwa.isIOS && !State.pwa.isStandalone) {
+                    State.pwa.showInstallBtn = true;
+                }
+            },
+
+            applyTheme() {
+                let isDark = false;
+                if (State.theme === 'system') {
+                    isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                } else {
+                    isDark = State.theme === 'dark';
+                }
+                document.documentElement.classList.toggle('dark', isDark);
             },
 
             handleAction(action, payload) {
                 switch(action) {
                     case 'toggle-theme':
-                        ThemeManager.toggleTheme();
+                        const nextTheme = { 'system': 'light', 'light': 'dark', 'dark': 'system' };
+                        State.theme = nextTheme[State.theme];
+                        localStorage.setItem('shift_theme_mode', State.theme);
+                        this.applyTheme();
                         break;
                     case 'change-view':
                         State.view = payload;
@@ -130,10 +266,16 @@
                         State.modal = { isOpen: false, type: '', data: null };
                         break;
                     case 'install-pwa':
-                        PWAHelper.triggerInstall(() => {
+                        if (State.pwa.installPrompt) {
+                            State.pwa.installPrompt.prompt();
+                            State.pwa.installPrompt.userChoice.then(res => {
+                                if (res.outcome === 'accepted') State.pwa.showInstallBtn = false;
+                                State.pwa.installPrompt = null;
+                                this.render();
+                            });
+                        } else if (State.pwa.isIOS) {
                             State.modal = { isOpen: true, type: 'install', data: null };
-                            this.render();
-                        });
+                        }
                         break;
                 }
                 this.render();
@@ -157,11 +299,10 @@
                 Header() {
                     const isShift = State.view === 'shift';
                     const isSchedule = State.view === 'schedule';
-                    const currentTheme = ThemeManager.getTheme();
                     
                     let themeIcon = Icons.Monitor;
-                    if (currentTheme === 'light') themeIcon = Icons.Sun;
-                    if (currentTheme === 'dark') themeIcon = Icons.Moon;
+                    if (State.theme === 'light') themeIcon = Icons.Sun;
+                    if (State.theme === 'dark') themeIcon = Icons.Moon;
 
                     return `
                         <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
@@ -176,7 +317,7 @@
                                 </div>
                                 
                                 <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
-                                    ${State.showInstallBtn ? `
+                                    ${State.pwa.showInstallBtn ? `
                                         <button onclick="App.handleAction('install-pwa')" class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-bold shadow-md animate-bounce-slow">
                                             ${Icons.Download} <span class="hidden sm:inline">安裝 App</span>
                                         </button>
@@ -240,8 +381,7 @@
                             const date = cells[i];
                             if (!date) continue;
                             
-                            const sIdx = ShiftCore.getIndex(date, group);
-                            const [shiftObj] = ShiftCore.getRecords(sIdx, 1, group);
+                            const shiftObj = ShiftLogic.getShiftObj(date, group);
                             if (shiftObj.shift === '休') continue; 
                             
                             const isFirstDayOfMonth = date.getDate() === 1;
@@ -254,13 +394,14 @@
                                 const daysToShiftEnd = shiftObj.max - shiftObj.seq + 1;
                                 
                                 const length = Math.min(daysToWeekEnd, daysToMonthEnd, daysToShiftEnd);
+                                
                                 const top = 36 + (rowIdx * 26);
                                 const row = Math.floor(i / 7);
                                 const col = i % 7;
                                 
                                 const widthCalc = `calc(${length * (100 / 7)}% - 4px)`;
                                 const leftCalc = `calc(${col * (100 / 7)}% + 2px)`;
-                                const styleClass = ShiftCore.STYLES[shiftObj.shift] || '';
+                                const styleClass = ShiftLogic.STYLES[shiftObj.shift];
                                 
                                 segmentsHTML += `
                                     <div class="absolute h-[24px] rounded px-1 flex items-center gap-1 shadow-sm border border-opacity-50 z-20 pointer-events-none transition-colors ${styleClass}"
@@ -331,9 +472,8 @@
                         const curDate = new Date(startDate);
                         curDate.setDate(startDate.getDate() + i);
                         
-                        const sIdx = ShiftCore.getIndex(curDate, group);
-                        const [shiftObj] = ShiftCore.getRecords(sIdx, 1, group);
-                        const agentInfo = ShiftCore.getAgentInfo(curDate, group);
+                        const shiftObj = ShiftLogic.getShiftObj(curDate, group);
+                        const agentInfo = ShiftLogic.getAgentInfo(curDate, group);
 
                         scheduleData.push({
                             date: curDate,
@@ -381,6 +521,7 @@
                                         ${scheduleData.map(row => {
                                             const isToday = row.date.toDateString() === new Date().toDateString();
                                             const dayName = ["日", "一", "二", "三", "四", "五", "六"][row.date.getDay()];
+                                            
                                             const rowClass = isToday ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border-l-4 border-transparent';
                                             
                                             return `
@@ -391,7 +532,7 @@
                                                         </div>
                                                     </td>
                                                     <td class="px-6 py-4 text-center whitespace-nowrap">
-                                                        <span class="inline-block px-3 py-1 rounded-md text-sm font-bold ${ShiftCore.STYLES[row.shift] || ''}">
+                                                        <span class="inline-block px-3 py-1 rounded-md text-sm font-bold ${ShiftLogic.STYLES[row.shift]}">
                                                             ${row.shift === '休' ? '休假' : row.shift + '班'} ${row.shift !== '休' ? `(第${row.seq}天)` : ''}
                                                         </span>
                                                     </td>
@@ -407,19 +548,16 @@
                     `;
                 },
 
+                // ★ 補回 GitHub 倉庫連結與版權頁尾
                 Footer() {
                     return `
-                        <footer class="mt-auto py-6 text-center text-xs text-slate-500 dark:text-slate-400">
-                            <div class="flex items-center justify-center gap-4 mb-2">
-                                <a href="https://github.com/dengkuanghung/vocation" target="_blank" rel="noopener noreferrer" 
-                                   class="inline-flex items-center gap-1.5 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
-                                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                                        <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
-                                    </svg>
-                                    <span>GitHub 專案倉庫</span>
+                        <footer class="mt-auto py-6 text-center text-sm text-slate-600 dark:text-slate-400">
+                            <p class="flex items-center justify-center gap-2">
+                                <span>copyright &copy; 2025 longping.</span>
+                                <a href="https://github.com/longping1950/CSC-shift" target="_blank" rel="noopener noreferrer" class="inline-flex items-center hover:opacity-80 transition-opacity">
+                                    <img src="web/github-mark.png" alt="點擊前往專案" class="h-6 w-6 inline-block align-middle dark:invert">
                                 </a>
-                            </div>
-                            <p>© 2026 中鋼輪班排程系統. All rights reserved.</p>
+                            </p>
                         </footer>
                     `;
                 },
@@ -433,9 +571,8 @@
                         
                         let rows = '';
                         State.selectedGroups.forEach(group => {
-                            const sIdx = ShiftCore.getIndex(date, group);
-                            const [shiftObj] = ShiftCore.getRecords(sIdx, 1, group);
-                            const agentInfo = ShiftCore.getAgentInfo(date, group);
+                            const shiftObj = ShiftLogic.getShiftObj(date, group);
+                            const agentInfo = ShiftLogic.getAgentInfo(date, group);
                             let textColor = "text-gray-400 dark:text-gray-500"; 
                             if (shiftObj.shift === '早') textColor = "text-[#005f6b] dark:text-[#4fd1c5] font-bold";
                             if (shiftObj.shift === '中') textColor = "text-[#5c450a] dark:text-[#f6e05e] font-bold";
@@ -456,7 +593,7 @@
 
                         return `
                             <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onclick="App.handleAction('close-modal')">
-                                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden" onclick="event.stopPropagation()">
+                                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden transform animate-slide-up" onclick="event.stopPropagation()">
                                     <div class="bg-slate-100 dark:bg-slate-700 p-4 border-b border-slate-200 dark:border-slate-600">
                                         <div class="flex justify-between items-center">
                                             <h3 class="font-bold text-lg text-slate-800 dark:text-white">${date.getMonth() + 1}月${date.getDate()}日 (週${weekDayStr})</h3>
@@ -472,7 +609,7 @@
                     if (State.modal.type === 'install') {
                         return `
                             <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm transition-opacity" onclick="App.handleAction('close-modal')">
-                                <div class="bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onclick="event.stopPropagation()">
+                                <div class="bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform animate-slide-up" onclick="event.stopPropagation()">
                                     <div class="p-6 space-y-4">
                                         <div class="flex justify-between items-start">
                                             <h3 class="text-xl font-bold text-slate-800 dark:text-white">安裝到主畫面</h3>
