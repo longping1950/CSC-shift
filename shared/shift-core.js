@@ -43,6 +43,13 @@ window.ShiftCore = {
     EFG_OFFSETS: { 'E': 0, 'F': 7, 'G': 14 },
     EFG_BASE_DATE_UTC: Date.UTC(2026, 0, 26),
 
+    STYLES: {
+        '早': 'bg-[#9dd7db] text-[#005f6b] dark:bg-[#005f6b] dark:text-[#9dd7db] border border-[#005f6b]/20',
+        '中': 'bg-[#ceb98d] text-[#5c450a] dark:bg-[#5c450a] dark:text-[#ceb98d] border border-[#5c450a]/20',
+        '夜': 'bg-[#c6a1cf] text-[#4a1f5c] dark:bg-[#4a1f5c] dark:text-[#c6a1cf] border border-[#4a1f5c]/20',
+        '休': 'bg-transparent text-slate-400'
+    },
+    
     getIndex(date, group) {
         const targetUTC = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
         if (['A', 'B', 'C', 'D'].includes(group)) {
