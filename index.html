@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>中鋼班表與加班查詢系統</title>
     
-    <link rel="icon" type="image/png" href="./web/icon-192.png">
-    <link rel="apple-touch-icon" href="./web/icon-192.png">
+    <link rel="icon" type="image/png" href="./icon-192.png?v=2">
+    <link rel="apple-touch-icon" href="./icon-192.png?v=2">
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#1e293b">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -18,7 +18,7 @@
         tailwind.config = { darkMode: 'class' }
     </script>
     
-    <!-- 引入全域共用模組 -->
+    <!-- 引入共用模組 -->
     <link rel="stylesheet" href="./shared/common.css">
     <script src="./shared/icons.js"></script>
     <script src="./shared/theme.js"></script>
@@ -30,9 +30,6 @@
     <div id="app-root" class="min-h-screen flex flex-col p-2 md:p-4 flex-grow"></div>
 
     <script>
-        /**
-         * 狀態管理與渲染引擎
-         */
         const State = {
             view: localStorage.getItem('shift_current_view') || 'shift',
             shiftMonthDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
@@ -40,37 +37,21 @@
             scheduleStartDate: new Date(),
             selectedScheduleGroup: localStorage.getItem('partMemory') || 'A',
             modal: { isOpen: false, type: '', data: null },
-            pwa: { installPrompt: null, showInstallBtn: false, isIOS: false, isStandalone: false }
+            showInstallBtn: false // 僅保留 UI 顯示開關，其餘細節由 PWAHelper 接管
         };
 
         const App = {
             init() {
-                this.initPWA();
-                this.render();
-
-                if ('serviceWorker' in navigator) {
-                    window.addEventListener('load', () => {
-                        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW failed:', err));
-                    });
-                }
-            },
-
-            initPWA() {
-                State.pwa.isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-                State.pwa.isIOS = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
-                
-                window.addEventListener('beforeinstallprompt', (e) => {
-                    e.preventDefault();
-                    State.pwa.installPrompt = e;
-                    if (!State.pwa.isStandalone) {
-                        State.pwa.showInstallBtn = true;
+                // 完全委託 PWAHelper 初始化與 SW 註冊
+                PWAHelper.init({
+                    swPath: './sw.js',
+                    onInstallableChange: (canInstall) => {
+                        State.showInstallBtn = canInstall;
                         this.render();
                     }
                 });
-
-                if (State.pwa.isIOS && !State.pwa.isStandalone) {
-                    State.pwa.showInstallBtn = true;
-                }
+                
+                this.render();
             },
 
             handleAction(action, payload) {
@@ -139,16 +120,11 @@
                         State.modal = { isOpen: false, type: '', data: null };
                         break;
                     case 'install-pwa':
-                        if (State.pwa.installPrompt) {
-                            State.pwa.installPrompt.prompt();
-                            State.pwa.installPrompt.userChoice.then(res => {
-                                if (res.outcome === 'accepted') State.pwa.showInstallBtn = false;
-                                State.pwa.installPrompt = null;
-                                this.render();
-                            });
-                        } else if (State.pwa.isIOS) {
+                        // 呼叫 PWAHelper，若是 iOS 則傳入開啟教學彈窗的回呼
+                        PWAHelper.triggerInstall(() => {
                             State.modal = { isOpen: true, type: 'install', data: null };
-                        }
+                            this.render();
+                        });
                         break;
                 }
                 this.render();
@@ -191,7 +167,7 @@
                                 </div>
                                 
                                 <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
-                                    ${State.pwa.showInstallBtn ? `
+                                    ${State.showInstallBtn ? `
                                         <button onclick="App.handleAction('install-pwa')" class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-bold shadow-md animate-bounce-slow">
                                             ${Icons.Download} <span class="hidden sm:inline">安裝 App</span>
                                         </button>
@@ -422,7 +398,6 @@
                     `;
                 },
 
-                // ★ 新增 Footer 元件：GitHub 倉庫連結與版權宣告
                 Footer() {
                     return `
                         <footer class="mt-auto py-6 text-center text-xs text-slate-500 dark:text-slate-400">
@@ -487,7 +462,7 @@
                     
                     if (State.modal.type === 'install') {
                         return `
-                            <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm" onclick="App.handleAction('close-modal')">
+                            <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm transition-opacity" onclick="App.handleAction('close-modal')">
                                 <div class="bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onclick="event.stopPropagation()">
                                     <div class="p-6 space-y-4">
                                         <div class="flex justify-between items-start">
